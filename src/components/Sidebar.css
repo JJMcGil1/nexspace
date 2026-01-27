@@ -1,0 +1,152 @@
+/* ═══════════════════════════════════════════════════════════
+   Sidebar — Collapsible vertical navigation
+   ═══════════════════════════════════════════════════════════ */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: var(--sidebar-width);
+  background: var(--color-bg-surface);
+  border-right: 1px solid var(--color-border);
+  flex-shrink: 0;
+  padding: 8px 0;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.sidebar--expanded {
+  width: var(--sidebar-width-open);
+}
+
+/* ── Logo button (doubles as expand/collapse toggle) ────── */
+.sidebar__logo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 56px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-bottom: 4px;
+  padding: 0 12px;
+  border-radius: 0;
+  transition: background 0.15s;
+}
+
+.sidebar--expanded .sidebar__logo-btn {
+  justify-content: flex-start;
+}
+
+.sidebar__logo-btn:hover {
+  background: var(--color-bg-hover);
+}
+
+/* ── Logo: icon-only (collapsed) ────────────────────────── */
+.sidebar__logo-icon {
+  display: block;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+/* ── Logo: full wordmark (expanded) ────────────────────── */
+.sidebar__logo-full {
+  display: block;
+  height: 36px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* ── Nav list ───────────────────────────────────────────── */
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  flex: 1;
+  padding: 0 8px;
+}
+
+.sidebar__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 8px 4px;
+}
+
+/* ── Nav item (collapsed = icon-only, expanded = icon + label) */
+.sidebar__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 100%;
+  height: 40px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar--expanded .sidebar__item {
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 0 12px;
+}
+
+.sidebar__item:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+.sidebar__item--active {
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+
+.sidebar__item--active:hover {
+  background: var(--color-accent-muted);
+  color: var(--color-accent-hover);
+}
+
+/* ── Icon ───────────────────────────────────────────────── */
+.sidebar__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Label (only visible when expanded) ─────────────────── */
+.sidebar__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: inherit;
+  opacity: 0;
+  transition: opacity 0.15s ease 0.05s;
+}
+
+.sidebar--expanded .sidebar__label {
+  opacity: 1;
+}
+
+/* ── Avatar ─────────────────────────────────────────────── */
+.sidebar__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}

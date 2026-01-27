@@ -1,0 +1,19 @@
+/* ═══════════════════════════════════════════════════════════
+   App — Root layout container
+   ═══════════════════════════════════════════════════════════ */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--color-bg-base);
+}
+
+.app__body {
+  display: flex;
+  flex: 1;
+  min-height: 0; /* critical for flex children to scroll */
+  overflow: hidden;
+}

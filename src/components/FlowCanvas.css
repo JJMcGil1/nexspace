@@ -1,0 +1,78 @@
+/* ═══════════════════════════════════════════════════════════
+   FlowCanvas — React Flow workspace
+   ═══════════════════════════════════════════════════════════ */
+
+.flow-canvas {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  background: var(--color-bg-base);
+  overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.flow-canvas__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  background: var(--color-bg-surface);
+}
+
+/* ── Viewport ───────────────────────────────────────────── */
+.flow-canvas__viewport {
+  flex: 1;
+  position: relative;
+}
+
+/* ── React Flow overrides for dark theme ────────────────── */
+.flow-canvas .react-flow__node {
+  font-family: var(--font-sans);
+}
+
+.flow-canvas .react-flow__edge-path {
+  stroke-width: 1.5;
+}
+
+.flow-canvas .react-flow__handle {
+  width: 8px;
+  height: 8px;
+  background: var(--color-accent);
+  border: 2px solid var(--color-bg-base);
+}
+
+.flow-canvas .react-flow__controls {
+  bottom: 16px;
+  left: 16px;
+}
+
+.flow-canvas .react-flow__controls button {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  width: 28px;
+  height: 28px;
+}
+
+.flow-canvas .react-flow__controls button:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.flow-canvas .react-flow__controls button svg {
+  fill: currentColor;
+}
+
+.flow-canvas .react-flow__minimap {
+  bottom: 16px;
+  right: 16px;
+}
