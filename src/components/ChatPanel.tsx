@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { IoSend } from 'react-icons/io5'
 import './ChatPanel.css'
 
 interface Message {
@@ -15,7 +16,14 @@ const WELCOME_MESSAGE: Message = {
   timestamp: new Date(),
 }
 
-const ChatPanel: React.FC = () => {
+interface ChatPanelProps {
+  isOpen: boolean
+  isFullWidth: boolean
+  width: number
+  isResizing: boolean
+}
+
+const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isResizing }) => {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE])
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -58,8 +66,18 @@ const ChatPanel: React.FC = () => {
     }
   }
 
+  const panelClasses = [
+    'chat-panel',
+    !isOpen && 'chat-panel--closed',
+    isFullWidth && 'chat-panel--full-width',
+    isResizing && 'chat-panel--resizing',
+  ].filter(Boolean).join(' ')
+
+  // Apply custom width only when both panels are open and not in full-width mode
+  const style = !isFullWidth && isOpen ? { flexBasis: `${width}px` } : undefined
+
   return (
-    <div className="chat-panel">
+    <div className={panelClasses} style={style}>
       {/* Messages */}
       <div className="chat-panel__messages">
         {messages.map((msg) => (
@@ -105,10 +123,7 @@ const ChatPanel: React.FC = () => {
           disabled={!input.trim()}
           aria-label="Send message"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
+          <IoSend size={16} />
         </button>
       </div>
     </div>

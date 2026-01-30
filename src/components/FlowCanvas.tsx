@@ -21,9 +21,9 @@ import './FlowCanvas.css'
  */
 /** Shared node style — uses NexSpace design tokens */
 const NODE_STYLE: React.CSSProperties = {
-  background: '#1e1e24',
+  background: '#19191b',
   color: '#ffffff',
-  border: '1px solid rgba(139, 92, 246, 0.15)',
+  border: '1px solid rgba(255, 255, 255, 0.08)',
   borderRadius: 8,
   padding: '10px 20px',
   fontSize: 13,
@@ -74,7 +74,12 @@ const INITIAL_EDGES: Edge[] = [
   },
 ]
 
-const FlowCanvas: React.FC = () => {
+interface FlowCanvasProps {
+  isOpen: boolean
+  isFullWidth: boolean
+}
+
+const FlowCanvas: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES)
   const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES)
 
@@ -87,8 +92,14 @@ const FlowCanvas: React.FC = () => {
     [setEdges]
   )
 
+  const canvasClasses = [
+    'flow-canvas',
+    !isOpen && 'flow-canvas--closed',
+    isFullWidth && 'flow-canvas--full-width',
+  ].filter(Boolean).join(' ')
+
   return (
-    <div className="flow-canvas">
+    <div className={canvasClasses}>
       {/* React Flow viewport */}
       <div className="flow-canvas__viewport">
         <ReactFlow
@@ -105,22 +116,22 @@ const FlowCanvas: React.FC = () => {
             variant={BackgroundVariant.Dots}
             gap={20}
             size={1}
-            color="rgba(139, 92, 246, 0.12)"
+            color="rgba(255, 255, 255, 0.06)"
           />
           <Controls
             showInteractive={false}
             style={{
-              background: '#1e1e24',
-              border: '1px solid rgba(139, 92, 246, 0.15)',
+              background: '#19191b',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: 8,
             }}
           />
           <MiniMap
             nodeColor="#6366f1"
-            maskColor="rgba(10, 10, 11, 0.75)"
+            maskColor="rgba(10, 10, 11, 0.85)"
             style={{
-              background: '#0a0a0b',
-              border: '1px solid rgba(139, 92, 246, 0.15)',
+              background: '#111113',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: 8,
             }}
           />

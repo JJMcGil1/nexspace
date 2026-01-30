@@ -6,9 +6,9 @@
   display: flex;
   align-items: center;
   height: var(--titlebar-height);
-  background: var(--color-bg-surface);
+  background: var(--color-bg-chrome);
   border-bottom: 1px solid var(--color-border);
-  padding: 0 12px;
+  padding: 0 0 0 8px;
   user-select: none;
   flex-shrink: 0;
   z-index: 100;
@@ -16,8 +16,67 @@
 
 /* macOS: leave room for the native traffic lights */
 .titlebar__traffic-spacer {
-  width: 72px;
+  width: 68px;
   flex-shrink: 0;
+}
+
+/* ── Logo ───────────────────────────────────────────────── */
+.titlebar__logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.titlebar__logo-svg {
+  height: 38px;
+  width: auto;
+}
+
+/* ── Center panel toggles (segmented control) ─────────────── */
+.titlebar__panel-toggles {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--color-toggle-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  padding: 4px;
+}
+
+.titlebar__panel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.titlebar__panel-btn:hover {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-hover);
+}
+
+.titlebar__panel-btn--active {
+  background: var(--color-bg-active);
+  color: var(--color-text-primary);
+}
+
+.titlebar__panel-btn--active:hover {
+  background: var(--color-bg-active);
+  color: var(--color-text-primary);
 }
 
 .titlebar__title {
@@ -31,19 +90,50 @@
   flex: 1;
 }
 
+/* ── New Canvas button ─────────────────────────────────── */
+.titlebar__new-canvas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  background: var(--gradient-primary);
+  border: none;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.titlebar__new-canvas:hover {
+  opacity: 0.9;
+}
+
+.titlebar__new-canvas:active {
+  opacity: 0.85;
+  transform: scale(0.98);
+}
+
 /* ── Window controls (Windows / Linux) ──────────────────── */
 .titlebar__controls {
   display: flex;
   align-items: center;
-  gap: 2px;
+  align-self: stretch;
+  gap: 0;
 }
 
 .titlebar__btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: var(--titlebar-height);
+  width: 46px;
+  height: 100%;
   background: transparent;
   border: none;
   color: var(--color-text-secondary);

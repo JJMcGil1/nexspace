@@ -13,8 +13,8 @@ function createWindow() {
     minHeight: 680,
     icon: path.join(__dirname, '../build/icon.png'),
     frame: false, // Frameless — we render our own titlebar
-    titleBarStyle: 'hidden',
-    titleBarOverlay: false,
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 20 }, // Centered in 56px titlebar
     backgroundColor: '#0f0f0f',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
