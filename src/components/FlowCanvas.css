@@ -7,7 +7,7 @@
   flex-direction: column;
   flex: 1 1 100%;
   min-width: 0;
-  background: var(--color-bg-base);
+  background: var(--color-canvas-bg);
   overflow: hidden;
   transition: flex-grow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
               flex-basis 0.25s cubic-bezier(0.4, 0, 0.2, 1),
@@ -62,7 +62,7 @@
   width: 8px;
   height: 8px;
   background: var(--color-accent);
-  border: 2px solid var(--color-bg-base);
+  border: 2px solid var(--color-canvas-bg);
 }
 
 .flow-canvas .react-flow__controls {

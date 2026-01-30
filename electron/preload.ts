@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 
 /**
  * Expose a safe, typed API to the renderer process.
@@ -12,4 +12,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Platform info (useful for rendering traffic lights vs window buttons)
   platform: process.platform,
+
+  // Claude CLI integration
+  claude: {
+    getToken: () => ipcRenderer.invoke('claude:getToken'),
+    login: () => ipcRenderer.invoke('claude:login'),
+    sendMessage: (params: { messages: Array<{ role: string; content: string }>; model: string }) =>
+      ipcRenderer.invoke('claude:sendMessage', params),
+    onStreamChunk: (callback: (chunk: string) => void) => {
+      const handler = (_event: IpcRendererEvent, chunk: string) => callback(chunk)
+      ipcRenderer.on('claude:stream-chunk', handler)
+      return () => ipcRenderer.removeListener('claude:stream-chunk', handler)
+    },
+    onStreamEnd: (callback: () => void) => {
+      const handler = () => callback()
+      ipcRenderer.on('claude:stream-end', handler)
+      return () => ipcRenderer.removeListener('claude:stream-end', handler)
+    },
+  },
 })

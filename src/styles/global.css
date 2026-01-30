@@ -20,6 +20,8 @@
   /* ── Component-specific ────────────────────────────────── */
   --color-toggle-bg:      #121214;
   --color-scrollbar-hover: rgba(255, 255, 255, 0.15);
+  --color-chat-bg:        #131316;
+  --color-canvas-bg:      #0f0f12;
 
   /* ── Text palette ────────────────────────────────────── */
   --color-text-primary:   #ffffff;
@@ -71,6 +73,8 @@
   /* ── Component-specific ────────────────────────────────── */
   --color-toggle-bg:      #e8e8ed;
   --color-scrollbar-hover: rgba(0, 0, 0, 0.2);
+  --color-chat-bg:        #ffffff;
+  --color-canvas-bg:      #fafafa;
 
   /* ── Text palette ────────────────────────────────────── */
   --color-text-primary:   #1d1d1f;
