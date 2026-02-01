@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { FaArrowUp, FaStop } from 'react-icons/fa'
+import { LuChevronDown, LuCheck } from 'react-icons/lu'
 import { useTheme } from '../contexts/ThemeContext'
-import { useAI, AVAILABLE_MODELS } from '../contexts/AIContext'
+import { useAI, AVAILABLE_MODELS, ClaudeModel } from '../contexts/AIContext'
 import NexoIconDark from '../assets/nexspace-icon-dark.svg'
 import NexoIconLight from '../assets/nexspace-icon-light.svg'
 import './ChatPanel.css'
@@ -43,10 +44,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE])
   const [input, setInput] = useState('')
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([])
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const streamingMessageIdRef = useRef<string | null>(null)
+  const modelDropdownRef = useRef<HTMLDivElement>(null)
 
   const NexoIcon = theme === 'dark' ? NexoIconDark : NexoIconLight
 
@@ -65,6 +68,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`
     }
   }, [input])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setIsModelDropdownOpen(false)
+      }
+    }
+    if (isModelDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isModelDropdownOpen])
+
+  const handleModelSelect = (modelId: ClaudeModel) => {
+    setModel(modelId)
+    setIsModelDropdownOpen(false)
+  }
+
+  const currentModel = AVAILABLE_MODELS.find(m => m.id === model) || AVAILABLE_MODELS[0]
 
   const handleSend = useCallback(() => {
     const text = input.trim()
@@ -241,41 +264,63 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
             rows={1}
             disabled={isStreaming}
           />
-          {isStreaming ? (
-            <button
-              className="chat-composer__send chat-composer__send--stop"
-              onClick={handleStopStreaming}
-              aria-label="Stop"
-              type="button"
-            >
-              <FaStop size={10} />
-            </button>
-          ) : (
-            <button
-              className={`chat-composer__send ${input.trim() ? 'chat-composer__send--active' : ''}`}
-              onClick={handleSend}
-              disabled={!input.trim()}
-              aria-label="Send"
-              type="button"
-            >
-              <FaArrowUp size={12} />
-            </button>
-          )}
-        </div>
-        {/* Model selector */}
-        <div className="chat-composer__model-row">
-          <select
-            className="chat-composer__model-select"
-            value={model}
-            onChange={(e) => setModel(e.target.value as typeof model)}
-            disabled={isStreaming}
-          >
-            {AVAILABLE_MODELS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
+          <div className="chat-composer__actions">
+            {/* Model selector dropdown */}
+            <div className="model-dropdown" ref={modelDropdownRef}>
+              <button
+                className={`model-dropdown__trigger ${isModelDropdownOpen ? 'model-dropdown__trigger--open' : ''}`}
+                onClick={() => !isStreaming && setIsModelDropdownOpen(!isModelDropdownOpen)}
+                disabled={isStreaming}
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isModelDropdownOpen}
+              >
+                <span className="model-dropdown__label">{currentModel.name}</span>
+                <LuChevronDown className={`model-dropdown__chevron ${isModelDropdownOpen ? 'model-dropdown__chevron--open' : ''}`} />
+              </button>
+              {isModelDropdownOpen && (
+                <div className="model-dropdown__menu" role="listbox">
+                  {AVAILABLE_MODELS.map((m) => (
+                    <button
+                      key={m.id}
+                      className={`model-dropdown__item ${m.id === model ? 'model-dropdown__item--selected' : ''}`}
+                      onClick={() => handleModelSelect(m.id)}
+                      role="option"
+                      aria-selected={m.id === model}
+                      type="button"
+                    >
+                      <div className="model-dropdown__item-content">
+                        <span className="model-dropdown__item-name">{m.name}</span>
+                        <span className="model-dropdown__item-desc">{m.description}</span>
+                      </div>
+                      {m.id === model && <LuCheck className="model-dropdown__item-check" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Send/Stop button */}
+            {isStreaming ? (
+              <button
+                className="chat-composer__send chat-composer__send--stop"
+                onClick={handleStopStreaming}
+                aria-label="Stop"
+                type="button"
+              >
+                <FaStop size={10} />
+              </button>
+            ) : (
+              <button
+                className={`chat-composer__send ${input.trim() ? 'chat-composer__send--active' : ''}`}
+                onClick={handleSend}
+                disabled={!input.trim()}
+                aria-label="Send"
+                type="button"
+              >
+                <FaArrowUp size={12} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

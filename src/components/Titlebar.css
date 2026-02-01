@@ -33,59 +33,6 @@
   width: auto;
 }
 
-/* ── Center panel toggles (segmented control) ─────────────── */
-.titlebar__panel-toggles {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  background: var(--color-toggle-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 9999px;
-  padding: 4px;
-}
-
-.titlebar__panel-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 9999px;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 500;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-  white-space: nowrap;
-}
-
-.titlebar__panel-btn:hover {
-  color: var(--color-text-secondary);
-  background: var(--color-bg-hover);
-}
-
-.titlebar__panel-btn--active {
-  background: var(--color-bg-active);
-  color: var(--color-text-primary);
-}
-
-.titlebar__panel-btn--active:hover {
-  background: var(--color-bg-active);
-  color: var(--color-text-primary);
-}
-
-.titlebar__title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  letter-spacing: 0.3px;
-}
-
 .titlebar__spacer {
   flex: 1;
 }

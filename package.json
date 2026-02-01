@@ -14,7 +14,15 @@
     "electron:preview": "vite build && electron ."
   },
   "dependencies": {
+    "@tiptap/extension-heading": "^3.18.0",
+    "@tiptap/extension-placeholder": "^3.18.0",
+    "@tiptap/extension-task-item": "^3.18.0",
+    "@tiptap/extension-task-list": "^3.18.0",
+    "@tiptap/pm": "^3.18.0",
+    "@tiptap/react": "^3.18.0",
+    "@tiptap/starter-kit": "^3.18.0",
     "@xyflow/react": "^12.4.4",
+    "electron-store": "^11.0.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-icons": "^5.5.0"

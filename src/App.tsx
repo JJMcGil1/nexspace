@@ -4,6 +4,8 @@ import Sidebar from './components/Sidebar'
 import ChatPanel from './components/ChatPanel'
 import FlowCanvas from './components/FlowCanvas'
 import SettingsModal from './components/SettingsModal'
+import Onboarding from './components/Onboarding'
+import { useUser } from './contexts/UserContext'
 import './App.css'
 
 /**
@@ -28,6 +30,7 @@ const MAX_CHAT_WIDTH = 600
 const DEFAULT_CHAT_WIDTH = 380
 
 const App: React.FC = () => {
+  const { onboardingComplete, isLoading } = useUser()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [chatOpen, setChatOpen] = useState(true)
   const [canvasOpen, setCanvasOpen] = useState(true)
@@ -79,6 +82,22 @@ const App: React.FC = () => {
 
   // Only show resize handle when both panels are open
   const showResizeHandle = chatOpen && canvasOpen
+
+  // Show loading state while checking onboarding status
+  if (isLoading) {
+    return (
+      <div className="app app--loading">
+        <div className="app__loader">
+          <div className="app__loader-spinner" />
+        </div>
+      </div>
+    )
+  }
+
+  // Show onboarding if not completed
+  if (!onboardingComplete) {
+    return <Onboarding />
+  }
 
   return (
     <div className={`app ${isResizing ? 'app--resizing' : ''}`}>

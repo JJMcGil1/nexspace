@@ -178,12 +178,12 @@
 
 .chat-composer__container {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
   background: var(--color-bg-hover);
   border: 1px solid var(--color-border);
-  border-radius: 16px;
+  border-radius: 20px;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
@@ -198,7 +198,7 @@
   width: 100%;
   background: transparent;
   border: none;
-  padding: 8px 4px;
+  padding: 4px 2px;
   font-size: 14px;
   font-family: var(--font-sans);
   color: var(--color-text-primary);
@@ -211,6 +211,14 @@
 
 .chat-composer__input::placeholder {
   color: var(--color-text-muted);
+}
+
+/* ── Actions row (model selector + send) ──────────────── */
+.chat-composer__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 /* ── Send button ───────────────────────────────────────── */
@@ -261,48 +269,129 @@
   50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
 }
 
-/* ── Model selector ──────────────────────────────────────── */
-.chat-composer__model-row {
-  display: flex;
-  justify-content: flex-start;
-  margin-top: 8px;
-  padding-left: 2px;
+/* ── Model Dropdown ─────────────────────────────────────── */
+.model-dropdown {
+  position: relative;
 }
 
-.chat-composer__model-select {
-  background: transparent;
-  border: none;
-  color: var(--color-text-muted);
+.model-dropdown__trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 12px;
+  background: var(--color-bg-active);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  color: var(--color-text-secondary);
   font-size: 12px;
+  font-weight: 500;
   font-family: var(--font-sans);
   cursor: pointer;
-  padding: 4px 8px 4px 0;
-  outline: none;
-  transition: color 0.15s ease;
-  -webkit-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%236b7280' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 4px center;
-  padding-right: 20px;
+  transition: all 0.15s ease;
 }
 
-.chat-composer__model-select:hover {
-  color: var(--color-text-secondary);
-}
-
-.chat-composer__model-select:focus {
+.model-dropdown__trigger:hover {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-subtle);
   color: var(--color-text-primary);
 }
 
-.chat-composer__model-select:disabled {
+.model-dropdown__trigger--open {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-primary);
+}
+
+.model-dropdown__trigger:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.chat-composer__model-select option {
+.model-dropdown__label {
+  white-space: nowrap;
+}
+
+.model-dropdown__chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+
+.model-dropdown__chevron--open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown menu */
+.model-dropdown__menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 220px;
   background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 6px;
+  z-index: 100;
+  animation: dropdownIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.model-dropdown__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.1s ease;
+}
+
+.model-dropdown__item:hover {
+  background: var(--color-bg-hover);
+}
+
+.model-dropdown__item--selected {
+  background: var(--color-bg-active);
+}
+
+.model-dropdown__item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-dropdown__item-name {
+  font-size: 13px;
+  font-weight: 500;
   color: var(--color-text-primary);
+}
+
+.model-dropdown__item-desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.model-dropdown__item-check {
+  width: 16px;
+  height: 16px;
+  color: var(--color-accent);
+  flex-shrink: 0;
 }
 
 /* ── Empty state ────────────────────────────────────────── */

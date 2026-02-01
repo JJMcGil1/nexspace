@@ -30,4 +30,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('claude:stream-end', handler)
     },
   },
+
+  // Local store (persistent database on user's machine)
+  store: {
+    get: (key: string) => ipcRenderer.invoke('store:get', key),
+    set: (key: string, value: unknown) => ipcRenderer.invoke('store:set', key, value),
+    delete: (key: string) => ipcRenderer.invoke('store:delete', key),
+    getAll: () => ipcRenderer.invoke('store:getAll'),
+    clear: () => ipcRenderer.invoke('store:clear'),
+  },
 })

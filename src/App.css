@@ -73,3 +73,31 @@
 .app--resizing * {
   cursor: col-resize !important;
 }
+
+/* ── Loading State ─────────────────────────────────────────── */
+.app--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app__loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app__loader-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(99, 102, 241, 0.8);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

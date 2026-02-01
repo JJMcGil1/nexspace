@@ -6,7 +6,9 @@
     "allowImportingTsExtensions": true,
     "composite": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "outDir": "./dist-types"
   },
   "include": ["vite.config.ts"]
 }

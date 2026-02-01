@@ -1,7 +1,7 @@
 import React from 'react'
-import { RiChatAiLine } from 'react-icons/ri'
-import { LuLayoutGrid, LuPlus, LuPanelLeft } from 'react-icons/lu'
+import { LuPlus } from 'react-icons/lu'
 import { useTheme } from '../contexts/ThemeContext'
+import AppLayoutDropdown from './AppLayoutDropdown'
 import './Titlebar.css'
 
 interface TitlebarProps {
@@ -91,47 +91,24 @@ const Titlebar: React.FC<TitlebarProps> = ({
 
       <div className="titlebar__spacer" />
 
-      {/* Center panel toggles */}
-      <div className="titlebar__panel-toggles no-drag">
-        <button
-          className={`titlebar__panel-btn ${sidebarOpen ? 'titlebar__panel-btn--active' : ''}`}
-          onClick={onToggleSidebar}
-          aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-          title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-        >
-          <LuPanelLeft size={14} />
-          <span>Sidebar</span>
-        </button>
-        <button
-          className={`titlebar__panel-btn ${chatOpen ? 'titlebar__panel-btn--active' : ''}`}
-          onClick={onToggleChat}
-          aria-label={chatOpen ? 'Hide chat' : 'Show chat'}
-          title={chatOpen ? 'Hide chat' : 'Show chat'}
-        >
-          <RiChatAiLine size={15} />
-          <span>Chat</span>
-        </button>
-        <button
-          className={`titlebar__panel-btn ${canvasOpen ? 'titlebar__panel-btn--active' : ''}`}
-          onClick={onToggleCanvas}
-          aria-label={canvasOpen ? 'Hide canvas' : 'Show canvas'}
-          title={canvasOpen ? 'Hide canvas' : 'Show canvas'}
-        >
-          <LuLayoutGrid size={14} />
-          <span>Canvas</span>
-        </button>
-      </div>
+      {/* Layout dropdown */}
+      <AppLayoutDropdown
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={onToggleSidebar}
+        chatOpen={chatOpen}
+        onToggleChat={onToggleChat}
+        canvasOpen={canvasOpen}
+        onToggleCanvas={onToggleCanvas}
+      />
 
-      <div className="titlebar__spacer" />
-
-      {/* New Canvas button */}
+      {/* New NexSpace button */}
       <button
         className="titlebar__new-canvas no-drag"
         onClick={onNewCanvas}
-        aria-label="New canvas"
+        aria-label="New NexSpace"
       >
         <LuPlus size={14} />
-        <span>New Canvas</span>
+        <span>New NexSpace</span>
       </button>
 
       {/* Windows / Linux controls */}

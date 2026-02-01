@@ -3,7 +3,22 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import { spawn } from 'child_process'
+import Store from 'electron-store'
 // https module removed - using Claude CLI instead
+
+// Initialize electron-store for local database
+const store = new Store({
+  name: 'nexspace-data',
+  defaults: {
+    user: null,
+    onboardingComplete: false,
+    nexspaces: [],
+    settings: {
+      theme: 'dark',
+      aiModel: 'sonnet'
+    }
+  }
+})
 
 let mainWindow: BrowserWindow | null = null
 
@@ -210,6 +225,30 @@ function createWindow() {
         })
       }
     })
+  })
+
+  // IPC: Local Store operations
+  ipcMain.handle('store:get', async (_event, key: string) => {
+    return store.get(key)
+  })
+
+  ipcMain.handle('store:set', async (_event, key: string, value: unknown) => {
+    store.set(key, value)
+    return { success: true }
+  })
+
+  ipcMain.handle('store:delete', async (_event, key: string) => {
+    store.delete(key as keyof typeof store.store)
+    return { success: true }
+  })
+
+  ipcMain.handle('store:getAll', async () => {
+    return store.store
+  })
+
+  ipcMain.handle('store:clear', async () => {
+    store.clear()
+    return { success: true }
   })
 
   mainWindow.on('closed', () => {
