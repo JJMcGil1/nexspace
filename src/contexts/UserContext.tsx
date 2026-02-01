@@ -114,8 +114,11 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       title,
       coverImage,
       coverColor: coverColor || getRandomColor(),
-      lastEdited: 'Just now',
+      lastEdited: new Date().toISOString(),
       createdAt: new Date().toISOString(),
+      nodes: [],
+      edges: [],
+      chatMessages: [],
     }
 
     const updatedNexSpaces = [newNexSpace, ...nexspaces]
@@ -128,7 +131,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Update a NexSpace
   const updateNexSpace = useCallback(async (id: string, updates: Partial<NexSpace>) => {
     const updatedNexSpaces = nexspaces.map(ns =>
-      ns.id === id ? { ...ns, ...updates, lastEdited: 'Just now' } : ns
+      ns.id === id ? { ...ns, ...updates, lastEdited: new Date().toISOString() } : ns
     )
 
     await window.electronAPI.store.set('nexspaces', updatedNexSpaces)

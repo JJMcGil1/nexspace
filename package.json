@@ -14,6 +14,7 @@
     "electron:preview": "vite build && electron ."
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
     "@tiptap/extension-heading": "^3.18.0",
     "@tiptap/extension-placeholder": "^3.18.0",
     "@tiptap/extension-task-item": "^3.18.0",
@@ -25,7 +26,8 @@
     "electron-store": "^11.0.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-icons": "^5.5.0"
+    "react-icons": "^5.5.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",

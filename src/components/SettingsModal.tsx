@@ -87,6 +87,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
   const statusDisplay = getAuthStatusDisplay()
   const needsReauth = authStatus === 'not_authenticated' || authStatus === 'token_expired' || authStatus === 'error'
+  const isChecking = authStatus === 'checking'
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Settings" width={520}>
@@ -118,7 +119,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 <button
                   className="settings__auth-btn settings__auth-btn--primary"
                   onClick={handleOpenTerminalLogin}
-                  disabled={isRefreshing || authStatus === 'checking'}
+                  disabled={isRefreshing || isChecking}
                 >
                   <LuTerminal size={14} />
                   Re-authenticate with Claude
@@ -128,7 +129,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
               <button
                 className="settings__auth-btn"
                 onClick={handleRefreshAuth}
-                disabled={isRefreshing || authStatus === 'checking'}
+                disabled={isRefreshing || isChecking}
               >
                 <LuRefreshCw size={14} className={isRefreshing ? 'settings__status-icon--spin' : ''} />
                 {isRefreshing ? 'Checking...' : 'Refresh'}

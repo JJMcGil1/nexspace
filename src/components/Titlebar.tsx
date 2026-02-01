@@ -1,6 +1,7 @@
-import React from 'react'
-import { LuPlus } from 'react-icons/lu'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { LuPlus, LuSearch, LuX } from 'react-icons/lu'
 import { useTheme } from '../contexts/ThemeContext'
+import { useCanvas } from '../contexts/CanvasContext'
 import AppLayoutDropdown from './AppLayoutDropdown'
 import './Titlebar.css'
 
@@ -30,12 +31,77 @@ const Titlebar: React.FC<TitlebarProps> = ({
   onNewCanvas,
 }) => {
   const { theme } = useTheme()
+  const { currentNexSpace, nodes } = useCanvas()
   const isMac = window.electronAPI?.platform === 'darwin'
   const isDark = theme === 'dark'
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const handleMinimize = () => window.electronAPI?.minimize()
   const handleMaximize = () => window.electronAPI?.maximize()
   const handleClose = () => window.electronAPI?.close()
+
+  // Filter nodes based on search query
+  const filteredNodes = searchQuery.trim()
+    ? nodes.filter(node => {
+        const title = String(node.data?.title || node.data?.label || '')
+        const content = String(node.data?.content || '')
+        const searchLower = searchQuery.toLowerCase()
+        return title.toLowerCase().includes(searchLower) ||
+               content.toLowerCase().includes(searchLower)
+      })
+    : []
+
+  // Handle node selection - dispatch event to focus on node in canvas
+  const handleSelectNode = useCallback((nodeId: string) => {
+    window.dispatchEvent(new CustomEvent('nexspace:focus-node', { detail: { nodeId } }))
+    setSearchQuery('')
+    setIsSearchFocused(false)
+    searchInputRef.current?.blur()
+  }, [])
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!filteredNodes.length) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedIndex(prev => Math.min(prev + 1, filteredNodes.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIndex(prev => Math.max(prev - 1, 0))
+    } else if (e.key === 'Enter' && filteredNodes[selectedIndex]) {
+      e.preventDefault()
+      handleSelectNode(filteredNodes[selectedIndex].id)
+    } else if (e.key === 'Escape') {
+      setSearchQuery('')
+      setIsSearchFocused(false)
+      searchInputRef.current?.blur()
+    }
+  }, [filteredNodes, selectedIndex, handleSelectNode])
+
+  // Reset selected index when results change
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [searchQuery])
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsSearchFocused(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const nexspaceName = currentNexSpace?.title || 'NexSpace'
 
   return (
     <header className="titlebar drag-region">
@@ -90,6 +156,62 @@ const Titlebar: React.FC<TitlebarProps> = ({
       </div>
 
       <div className="titlebar__spacer" />
+
+      {/* Search bar */}
+      <div className="titlebar__search-container no-drag" ref={dropdownRef}>
+        <div className={`titlebar__search ${isSearchFocused ? 'titlebar__search--focused' : ''}`}>
+          <LuSearch className="titlebar__search-icon" size={14} />
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="titlebar__search-input"
+            placeholder={`Search '${nexspaceName}'`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
+            onKeyDown={handleKeyDown}
+          />
+          {searchQuery && (
+            <button
+              className="titlebar__search-clear"
+              onClick={() => {
+                setSearchQuery('')
+                searchInputRef.current?.focus()
+              }}
+              aria-label="Clear search"
+            >
+              <LuX size={12} />
+            </button>
+          )}
+        </div>
+
+        {/* Search results dropdown */}
+        {isSearchFocused && searchQuery.trim() && (
+          <div className="titlebar__search-dropdown">
+            {filteredNodes.length > 0 ? (
+              filteredNodes.slice(0, 8).map((node, index) => (
+                <button
+                  key={node.id}
+                  className={`titlebar__search-result ${index === selectedIndex ? 'titlebar__search-result--selected' : ''}`}
+                  onClick={() => handleSelectNode(node.id)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                >
+                  <span className="titlebar__search-result-title">
+                    {String(node.data?.title || node.data?.label || 'Untitled')}
+                  </span>
+                  <span className="titlebar__search-result-type">
+                    {node.type || 'node'}
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="titlebar__search-empty">
+                No nodes found
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Layout dropdown */}
       <AppLayoutDropdown

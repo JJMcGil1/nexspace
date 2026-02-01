@@ -5,7 +5,8 @@ import ChatPanel from './components/ChatPanel'
 import FlowCanvas from './components/FlowCanvas'
 import SettingsModal from './components/SettingsModal'
 import Onboarding from './components/Onboarding'
-import { useUser } from './contexts/UserContext'
+import { useUser, NEXSPACE_COLORS } from './contexts/UserContext'
+import { useCanvas } from './contexts/CanvasContext'
 import './App.css'
 
 /**
@@ -30,7 +31,8 @@ const MAX_CHAT_WIDTH = 600
 const DEFAULT_CHAT_WIDTH = 380
 
 const App: React.FC = () => {
-  const { onboardingComplete, isLoading } = useUser()
+  const { onboardingComplete, isLoading, addNexSpace } = useUser()
+  const { loadNexSpace } = useCanvas()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [chatOpen, setChatOpen] = useState(true)
   const [canvasOpen, setCanvasOpen] = useState(true)
@@ -44,6 +46,14 @@ const App: React.FC = () => {
   const toggleCanvas = () => setCanvasOpen((prev) => !prev)
   const openSettings = () => setSettingsOpen(true)
   const closeSettings = () => setSettingsOpen(false)
+
+  const handleNewCanvas = useCallback(async () => {
+    const title = `Untitled Space ${Date.now().toString(36).slice(-4)}`
+    const randomColor = NEXSPACE_COLORS[Math.floor(Math.random() * NEXSPACE_COLORS.length)]
+    const newNexSpace = await addNexSpace(title, undefined, randomColor)
+    // Load the new nexspace into canvas context
+    await loadNexSpace(newNexSpace.id)
+  }, [addNexSpace, loadNexSpace])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -108,6 +118,7 @@ const App: React.FC = () => {
         onToggleChat={toggleChat}
         canvasOpen={canvasOpen}
         onToggleCanvas={toggleCanvas}
+        onNewCanvas={handleNewCanvas}
       />
       <div className="app__body" ref={appBodyRef}>
         <Sidebar isOpen={sidebarOpen} onOpenSettings={openSettings} />

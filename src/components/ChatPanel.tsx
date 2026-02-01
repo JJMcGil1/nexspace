@@ -1,12 +1,19 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { FaArrowUp, FaStop } from 'react-icons/fa'
 import { LuChevronDown, LuCheck } from 'react-icons/lu'
 import { useTheme } from '../contexts/ThemeContext'
-import { useAI, AVAILABLE_MODELS, ClaudeModel } from '../contexts/AIContext'
+import { useAI, AVAILABLE_MODELS, ClaudeModel, ToolCall } from '../contexts/AIContext'
+import { useCanvas } from '../contexts/CanvasContext'
+import type { ChatMessage as StoredChatMessage } from '../types/electron'
 import NexoIconDark from '../assets/nexspace-icon-dark.svg'
 import NexoIconLight from '../assets/nexspace-icon-light.svg'
 import './ChatPanel.css'
 
+// Unique ID generator to avoid React key collisions
+let messageIdCounter = 0
+const generateMessageId = () => `msg-${Date.now()}-${++messageIdCounter}`
+
+// UI message with runtime state (isStreaming is not persisted)
 interface Message {
   id: string
   role: 'user' | 'assistant'
@@ -14,18 +21,14 @@ interface Message {
   timestamp: Date
   isStreaming?: boolean
   isError?: boolean
+  toolCalls?: ToolCall[]
+  thinking?: string
 }
 
-interface ChatMessage {
+// For Claude CLI context (minimal)
+interface ChatHistoryMessage {
   role: 'user' | 'assistant'
   content: string
-}
-
-const WELCOME_MESSAGE: Message = {
-  id: 'welcome',
-  role: 'assistant',
-  content: 'Welcome to NexSpace. How can I help you today?',
-  timestamp: new Date(),
 }
 
 const ASSISTANT_NAME = 'Nexo'
@@ -40,11 +43,53 @@ interface ChatPanelProps {
 const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isResizing }) => {
   const { theme } = useTheme()
   const { sendMessage, isStreaming, abortStream, isConfigured, model, setModel } = useAI()
+  const { chatMessages, addChatMessage, updateChatMessage, currentNexSpaceId } = useCanvas()
 
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE])
+  // Local state for streaming message (not persisted until complete)
+  const [streamingMessage, setStreamingMessage] = useState<Message | null>(null)
+  const [streamingToolCalls, setStreamingToolCalls] = useState<ToolCall[]>([])
+  const [streamingThinking, setStreamingThinking] = useState<string>('')
   const [input, setInput] = useState('')
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([])
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
+
+  // Clear any streaming state when switching nexspaces
+  // This prevents messages from "bleeding" between nexspaces
+  useEffect(() => {
+    console.log('[ChatPanel] NexSpace changed to:', currentNexSpaceId)
+    setStreamingMessage(null)
+    setStreamingToolCalls([])
+    setStreamingThinking('')
+  }, [currentNexSpaceId])
+
+  // Convert stored messages to UI messages
+  // Use currentNexSpaceId in dependency to ensure re-render on nexspace switch
+  const messages = useMemo((): Message[] => {
+    const storedMessages: Message[] = chatMessages.map(msg => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      timestamp: new Date(msg.timestamp),
+      isError: msg.isError,
+    }))
+
+    // Append streaming message ONLY if it's not already persisted
+    // This prevents duplicate rendering during the React state transition
+    if (streamingMessage && !storedMessages.some(m => m.id === streamingMessage.id)) {
+      return [...storedMessages, streamingMessage]
+    }
+
+    return storedMessages
+  }, [chatMessages, streamingMessage, currentNexSpaceId])
+
+  // Build chat history for Claude CLI context
+  const chatHistory = useMemo((): ChatHistoryMessage[] => {
+    return chatMessages
+      .filter(msg => !msg.isError)
+      .map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      }))
+  }, [chatMessages])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -95,27 +140,28 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
 
     // Check if API is configured
     if (!isConfigured) {
-      const errorMsg: Message = {
-        id: `msg-${Date.now()}`,
+      const errorMsg: StoredChatMessage = {
+        id: generateMessageId(),
         role: 'assistant',
         content: 'Please click "Re-authenticate with Claude" in Settings, or run `claude logout && claude login` in your terminal.',
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
         isError: true,
       }
-      setMessages((prev) => [...prev, errorMsg])
+      addChatMessage(errorMsg)
       return
     }
 
-    // Add user message
-    const userMsg: Message = {
-      id: `msg-${Date.now()}`,
+    // Add user message to persistent storage
+    const userMsg: StoredChatMessage = {
+      id: generateMessageId(),
       role: 'user',
       content: text,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     }
+    addChatMessage(userMsg)
 
-    // Create placeholder for assistant response
-    const assistantMsgId = `msg-${Date.now() + 1}`
+    // Create placeholder for assistant response (local streaming state)
+    const assistantMsgId = generateMessageId()
     const assistantMsg: Message = {
       id: assistantMsgId,
       role: 'assistant',
@@ -125,64 +171,73 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
     }
 
     streamingMessageIdRef.current = assistantMsgId
-    setMessages((prev) => [...prev, userMsg, assistantMsg])
+    setStreamingMessage(assistantMsg)
+    setStreamingToolCalls([])
+    setStreamingThinking('')
     setInput('')
 
-    // Send to API
-    sendMessage(
-      text,
-      chatHistory,
+    // Send to API with all callbacks
+    sendMessage(text, chatHistory, {
       // onChunk - append streamed text
-      (chunk: string) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMsgId
-              ? { ...msg, content: msg.content + chunk }
-              : msg
+      onChunk: (chunk: string) => {
+        setStreamingMessage((prev) =>
+          prev ? { ...prev, content: prev.content + chunk } : null
+        )
+      },
+      // onToolUse - track tool call
+      onToolUse: (tool: ToolCall) => {
+        setStreamingToolCalls((prev) => [...prev, tool])
+      },
+      // onToolResult - update tool call with result
+      onToolResult: (toolId: string, result: string) => {
+        setStreamingToolCalls((prev) =>
+          prev.map((t) =>
+            t.id === toolId ? { ...t, result, status: 'complete' as const } : t
           )
         )
       },
-      // onComplete - finalize message and update history
-      () => {
-        setMessages((prev) => {
-          const finalMessages = prev.map((msg) =>
-            msg.id === assistantMsgId
-              ? { ...msg, isStreaming: false }
-              : msg
-          )
-
-          // Update chat history for context
-          const assistantContent = finalMessages.find(m => m.id === assistantMsgId)?.content || ''
-          if (assistantContent) {
-            setChatHistory((h) => [
-              ...h,
-              { role: 'user', content: text },
-              { role: 'assistant', content: assistantContent },
-            ])
+      // onThinking - update thinking content
+      onThinking: (thinking: string) => {
+        setStreamingThinking(thinking)
+      },
+      // onComplete - persist final message and clear streaming state
+      onComplete: () => {
+        console.log('[ChatPanel] onComplete called')
+        setStreamingMessage((prev) => {
+          if (prev && prev.content) {
+            const finalMsg: StoredChatMessage = {
+              id: prev.id,
+              role: 'assistant',
+              content: prev.content,
+              timestamp: prev.timestamp.toISOString(),
+            }
+            addChatMessage(finalMsg)
           }
-
-          return finalMessages
+          return null
         })
+        setStreamingToolCalls([])
+        setStreamingThinking('')
         streamingMessageIdRef.current = null
       },
-      // onError - show error message
-      (error: string) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMsgId
-              ? {
-                  ...msg,
-                  content: `Error: ${error}`,
-                  isStreaming: false,
-                  isError: true,
-                }
-              : msg
-          )
-        )
+      // onError - persist error message
+      onError: (error: string) => {
+        setStreamingMessage((prev) => {
+          const errorMsg: StoredChatMessage = {
+            id: prev?.id || generateMessageId(),
+            role: 'assistant',
+            content: `Error: ${error}`,
+            timestamp: new Date().toISOString(),
+            isError: true,
+          }
+          addChatMessage(errorMsg)
+          return null
+        })
+        setStreamingToolCalls([])
+        setStreamingThinking('')
         streamingMessageIdRef.current = null
-      }
-    )
-  }, [input, isStreaming, isConfigured, chatHistory, sendMessage])
+      },
+    })
+  }, [input, isStreaming, isConfigured, chatHistory, sendMessage, addChatMessage])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -193,14 +248,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
 
   const handleStopStreaming = () => {
     abortStream()
-    if (streamingMessageIdRef.current) {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === streamingMessageIdRef.current
-            ? { ...msg, isStreaming: false, content: msg.content + ' [stopped]' }
-            : msg
-        )
-      )
+    if (streamingMessageIdRef.current && streamingMessage) {
+      // Persist the partial message with [stopped] marker
+      const stoppedMsg: StoredChatMessage = {
+        id: streamingMessage.id,
+        role: 'assistant',
+        content: streamingMessage.content + ' [stopped]',
+        timestamp: streamingMessage.timestamp.toISOString(),
+      }
+      addChatMessage(stoppedMsg)
+      setStreamingMessage(null)
       streamingMessageIdRef.current = null
     }
   }
@@ -218,6 +275,41 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
     <div className={panelClasses} style={style}>
       {/* Messages */}
       <div className="chat-panel__messages">
+        {/* Empty state when no messages */}
+        {messages.length === 0 && (
+          <div className="chat-panel__empty">
+            <div className="chat-panel__empty-icon">
+              <img src={NexoIcon} alt="Nexo" className="chat-panel__empty-avatar" />
+            </div>
+            <h3 className="chat-panel__empty-title">Start a conversation</h3>
+            <p className="chat-panel__empty-text">
+              Ask Nexo to help you build, organize, or explore your ideas on the canvas.
+            </p>
+            <div className="chat-panel__empty-suggestions">
+              <button
+                type="button"
+                className="chat-panel__empty-chip"
+                onClick={() => setInput('Add a document node')}
+              >
+                Add a document node
+              </button>
+              <button
+                type="button"
+                className="chat-panel__empty-chip"
+                onClick={() => setInput("What's on my canvas?")}
+              >
+                What's on my canvas?
+              </button>
+              <button
+                type="button"
+                className="chat-panel__empty-chip"
+                onClick={() => setInput('Help me brainstorm ideas')}
+              >
+                Help me brainstorm
+              </button>
+            </div>
+          </div>
+        )}
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -242,8 +334,48 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
                   })}
                 </span>
               </div>
+
+              {/* Thinking indicator (only for streaming message) */}
+              {msg.isStreaming && streamingThinking && (
+                <div className="chat-msg__thinking">
+                  <span className="chat-msg__thinking-icon">🧠</span>
+                  <span className="chat-msg__thinking-text">
+                    {streamingThinking.length > 100
+                      ? streamingThinking.substring(0, 100) + '...'
+                      : streamingThinking}
+                  </span>
+                </div>
+              )}
+
+              {/* Tool calls (only for streaming message) */}
+              {msg.isStreaming && streamingToolCalls.length > 0 && (
+                <div className="chat-msg__tools">
+                  {streamingToolCalls.map((tool) => (
+                    <div key={tool.id} className={`chat-msg__tool chat-msg__tool--${tool.status}`}>
+                      <div className="chat-msg__tool-header">
+                        <span className="chat-msg__tool-icon">
+                          {tool.status === 'pending' ? '⏳' : '✅'}
+                        </span>
+                        <span className="chat-msg__tool-name">
+                          {tool.name.replace('mcp__nexspace-canvas__', '')}
+                        </span>
+                      </div>
+                      {tool.result && (
+                        <div className="chat-msg__tool-result">
+                          {tool.result.length > 200
+                            ? tool.result.substring(0, 200) + '...'
+                            : tool.result}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="chat-msg__content">
-                {msg.content || (msg.isStreaming && <span className="chat-msg__typing">Thinking...</span>)}
+                {msg.content || (msg.isStreaming && !streamingThinking && streamingToolCalls.length === 0 && (
+                  <span className="chat-msg__typing">Thinking...</span>
+                ))}
               </div>
             </div>
           </div>

@@ -267,3 +267,43 @@
   bottom: 16px;
   right: 16px;
 }
+
+/* ── Search highlight animation ─────────────────────────── */
+.rf-node-search-highlight {
+  animation: search-highlight-pulse 0.5s ease-out;
+}
+
+.rf-node-search-highlight::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  border: 2px solid var(--color-accent, #6366f1);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4),
+              0 0 40px rgba(99, 102, 241, 0.2);
+  animation: search-highlight-ring 2s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes search-highlight-pulse {
+  0% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes search-highlight-ring {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}

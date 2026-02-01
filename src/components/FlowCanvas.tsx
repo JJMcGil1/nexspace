@@ -4,8 +4,6 @@ import {
   Background,
   MiniMap,
   addEdge,
-  useNodesState,
-  useEdgesState,
   useReactFlow,
   ReactFlowProvider,
   type Connection,
@@ -13,14 +11,21 @@ import {
   type Edge,
   BackgroundVariant,
   type NodeMouseHandler,
+  type OnNodesChange,
+  type OnEdgesChange,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import './FlowCanvas.css'
 import { useTheme } from '../contexts/ThemeContext'
+import { useCanvas } from '../contexts/CanvasContext'
 import { nodeTypes, NODE_LIBRARY } from './nodes'
 import DocumentNodeFullscreen from './nodes/DocumentNodeFullscreen'
 import { LuLayoutTemplate } from 'react-icons/lu'
+import { IoDocumentTextOutline } from 'react-icons/io5'
 import Tooltip from './Tooltip'
+import type { CanvasNode, CanvasEdge } from '../types/electron'
 
 /** NexSpace accent for edges */
 const EDGE_STYLE: React.CSSProperties = { stroke: '#6366f1' }
@@ -115,23 +120,7 @@ const NodeLibraryDropdown: React.FC<NodeLibraryDropdownProps> = ({
             }}
           >
             <div className="node-library-dropdown__item-icon">
-              {item.icon === 'document' && (
-                <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M4 2h5.5L13 5.5V13a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M9 2v4h4M5.5 8h5M5.5 10.5h5"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
+              {item.icon === 'document' && <IoDocumentTextOutline size={18} />}
             </div>
             <div className="node-library-dropdown__item-content">
               <span className="node-library-dropdown__item-label">{item.label}</span>
@@ -246,38 +235,91 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const themeStyles = useMemo(() => getThemeStyles(isDark), [isDark])
-  const { fitView, zoomIn, zoomOut } = useReactFlow()
+  const { fitView, zoomIn, zoomOut, setCenter, getNode } = useReactFlow()
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  // Use CanvasContext for persistence
+  const {
+    nodes: canvasNodes,
+    edges: canvasEdges,
+    setNodes: setCanvasNodes,
+    setEdges: setCanvasEdges,
+  } = useCanvas()
+
+  // Convert CanvasNode/CanvasEdge to React Flow types
+  const nodes: Node[] = useMemo(() => canvasNodes.map(n => ({
+    ...n,
+    data: n.data,
+  })), [canvasNodes])
+
+  const edges: Edge[] = useMemo(() => canvasEdges.map(e => ({
+    ...e,
+    animated: true,
+    style: EDGE_STYLE,
+  })), [canvasEdges])
+
+  // Handle node changes from React Flow
+  const onNodesChange: OnNodesChange = useCallback((changes) => {
+    setCanvasNodes(prev => {
+      const rfNodes = prev.map(n => ({ ...n, data: n.data })) as Node[]
+      const updated = applyNodeChanges(changes, rfNodes)
+      return updated.map(n => ({
+        id: n.id,
+        type: n.type || 'default',
+        position: n.position,
+        data: n.data as Record<string, unknown>,
+      }))
+    })
+  }, [setCanvasNodes])
+
+  // Handle edge changes from React Flow
+  const onEdgesChange: OnEdgesChange = useCallback((changes) => {
+    setCanvasEdges(prev => {
+      const rfEdges = prev.map(e => ({ ...e })) as Edge[]
+      const updated = applyEdgeChanges(changes, rfEdges)
+      return updated.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+      }))
+    })
+  }, [setCanvasEdges])
+
   const [nodeIdCounter, setNodeIdCounter] = useState(1)
   const [fullscreenNode, setFullscreenNode] = useState<FullscreenNodeState | null>(null)
   const [showMinimap, setShowMinimap] = useState(true)
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      setEdges((eds) =>
-        addEdge({ ...connection, animated: true, style: EDGE_STYLE }, eds)
-      )
+      if (!connection.source || !connection.target) return
+      const newEdge: CanvasEdge = {
+        id: `edge-${Date.now()}`,
+        source: connection.source,
+        target: connection.target,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
+      }
+      setCanvasEdges((eds) => [...eds, newEdge])
     },
-    [setEdges]
+    [setCanvasEdges]
   )
 
   const handleAddNode = useCallback(
     (type: string, defaultData: Record<string, unknown>) => {
-      const newNode: Node = {
+      const newNode: CanvasNode = {
         id: `node-${nodeIdCounter}`,
         type,
         position: {
-          x: 100 + (nodes.length % 4) * 360,
-          y: 100 + Math.floor(nodes.length / 4) * 280,
+          x: 100 + (canvasNodes.length % 4) * 360,
+          y: 100 + Math.floor(canvasNodes.length / 4) * 280,
         },
         data: { ...defaultData },
       }
-      setNodes((nds) => [...nds, newNode])
+      setCanvasNodes((nds) => [...nds, newNode])
       setNodeIdCounter((c) => c + 1)
     },
-    [nodes.length, nodeIdCounter, setNodes]
+    [canvasNodes.length, nodeIdCounter, setCanvasNodes]
   )
 
   const handleZoomIn = useCallback(() => {
@@ -295,6 +337,23 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
   const handleToggleMinimap = useCallback(() => {
     setShowMinimap((prev) => !prev)
   }, [])
+
+  // Handle node hover - direct DOM manipulation, no React state to avoid re-render loops
+  const handleNodeMouseEnter: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      const nodeEl = document.querySelector(`[data-id="${node.id}"]`)
+      nodeEl?.classList.add('rf-node-hovered')
+    },
+    []
+  )
+
+  const handleNodeMouseLeave: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      const nodeEl = document.querySelector(`[data-id="${node.id}"]`)
+      nodeEl?.classList.remove('rf-node-hovered')
+    },
+    []
+  )
 
   // Handle double-click on nodes to open fullscreen
   const handleNodeDoubleClick: NodeMouseHandler = useCallback(
@@ -316,7 +375,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
   // Handle updates from fullscreen editor
   const handleFullscreenUpdate = useCallback(
     (nodeId: string, data: { title?: string; content?: string }) => {
-      setNodes((nds) =>
+      setCanvasNodes((nds) =>
         nds.map((node) =>
           node.id === nodeId
             ? { ...node, data: { ...node.data, ...data } }
@@ -330,7 +389,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
           : prev
       )
     },
-    [setNodes]
+    [setCanvasNodes]
   )
 
   // Close fullscreen
@@ -357,6 +416,35 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
     return () => window.removeEventListener('node-fullscreen', handleFullscreenEvent as EventListener)
   }, [nodes])
 
+  // Listen for focus-node events from search
+  useEffect(() => {
+    const handleFocusNode = (event: CustomEvent<{ nodeId: string }>) => {
+      const node = getNode(event.detail.nodeId)
+      if (node) {
+        // Center the viewport on the node with animation
+        const nodeWidth = node.measured?.width || 300
+        const nodeHeight = node.measured?.height || 200
+        setCenter(
+          node.position.x + nodeWidth / 2,
+          node.position.y + nodeHeight / 2,
+          { duration: 500, zoom: 1.2 }
+        )
+
+        // Add a temporary highlight effect to the node
+        const nodeEl = document.querySelector(`[data-id="${node.id}"]`)
+        if (nodeEl) {
+          nodeEl.classList.add('rf-node-search-highlight')
+          setTimeout(() => {
+            nodeEl.classList.remove('rf-node-search-highlight')
+          }, 2000)
+        }
+      }
+    }
+
+    window.addEventListener('nexspace:focus-node', handleFocusNode as EventListener)
+    return () => window.removeEventListener('nexspace:focus-node', handleFocusNode as EventListener)
+  }, [getNode, setCenter])
+
   const canvasClasses = [
     'flow-canvas',
     !isOpen && 'flow-canvas--closed',
@@ -382,6 +470,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeMouseEnter={handleNodeMouseEnter}
+          onNodeMouseLeave={handleNodeMouseLeave}
           onNodeDoubleClick={handleNodeDoubleClick}
           nodeTypes={nodeTypes}
           fitView

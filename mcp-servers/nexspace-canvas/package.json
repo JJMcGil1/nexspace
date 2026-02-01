@@ -1,0 +1,19 @@
+{
+  "name": "nexspace-canvas-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for NexSpace canvas tools",
+  "type": "module",
+  "main": "dist/bundle.js",
+  "scripts": {
+    "build": "tsc && npm run bundle",
+    "bundle": "node esbuild.config.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.0.0"
+  }
+}

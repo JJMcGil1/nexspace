@@ -25,6 +25,25 @@ interface ChatMessage {
   content: string
 }
 
+// Tool call tracking
+export interface ToolCall {
+  id: string
+  name: string
+  input: unknown
+  result?: string
+  status: 'pending' | 'complete'
+}
+
+// Streaming event callbacks
+export interface StreamCallbacks {
+  onChunk: (chunk: string) => void
+  onToolUse: (tool: ToolCall) => void
+  onToolResult: (toolId: string, result: string) => void
+  onThinking: (thinking: string) => void
+  onComplete: () => void
+  onError: (error: string) => void
+}
+
 type AuthStatus = 'checking' | 'authenticated' | 'not_authenticated' | 'token_expired' | 'error'
 
 interface AIContextValue {
@@ -38,9 +57,7 @@ interface AIContextValue {
   sendMessage: (
     message: string,
     history: ChatMessage[],
-    onChunk: (chunk: string) => void,
-    onComplete: () => void,
-    onError: (error: string) => void
+    callbacks: StreamCallbacks
   ) => void
   abortStream: () => void
 }
@@ -117,10 +134,10 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     async (
       message: string,
       history: ChatMessage[],
-      onChunk: (chunk: string) => void,
-      onComplete: () => void,
-      onError: (error: string) => void
+      callbacks: StreamCallbacks
     ) => {
+      const { onChunk, onToolUse, onToolResult, onThinking, onComplete, onError } = callbacks
+
       // Claude CLI handles its own authentication
       if (authStatus !== 'authenticated') {
         onError('Not authenticated. Please run "claude login" in your terminal.')
@@ -130,15 +147,51 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       setIsStreaming(true)
       console.log('[AIContext] Setting up stream listeners...')
 
-      // Claude CLI outputs plain text directly, no SSE parsing needed
+      // Track if we've already completed to prevent double-firing
+      let hasCompleted = false
+
+      // Text chunks
       const unsubChunk = window.electronAPI.claude.onStreamChunk((chunk: string) => {
-        console.log('[AIContext] Received chunk:', chunk.substring(0, 50))
+        console.log('[AIContext] Received chunk, length:', chunk.length)
         onChunk(chunk)
       })
 
+      // Tool usage events
+      const unsubToolUse = window.electronAPI.claude.onToolUse((tool) => {
+        console.log('[AIContext] Tool use:', tool.name)
+        onToolUse({
+          id: tool.id,
+          name: tool.name,
+          input: tool.input,
+          status: 'pending'
+        })
+      })
+
+      // Tool result events
+      const unsubToolResult = window.electronAPI.claude.onToolResult((result) => {
+        console.log('[AIContext] Tool result for:', result.tool_use_id)
+        onToolResult(result.tool_use_id, result.content)
+      })
+
+      // Thinking events
+      const unsubThinking = window.electronAPI.claude.onThinking((thinking) => {
+        console.log('[AIContext] Thinking:', thinking.substring(0, 50))
+        onThinking(thinking)
+      })
+
+      // Stream end
       const unsubEnd = window.electronAPI.claude.onStreamEnd(() => {
-        console.log('[AIContext] Stream ended')
+        console.log('[AIContext] Stream ended, hasCompleted:', hasCompleted)
+        if (hasCompleted) {
+          console.warn('[AIContext] DUPLICATE stream-end blocked!')
+          return
+        }
+        hasCompleted = true
+        // Cleanup all listeners
         unsubChunk()
+        unsubToolUse()
+        unsubToolResult()
+        unsubThinking()
         unsubEnd()
         setIsStreaming(false)
         onComplete()
@@ -161,6 +214,9 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
         if (!result.success) {
           unsubChunk()
+          unsubToolUse()
+          unsubToolResult()
+          unsubThinking()
           unsubEnd()
           setIsStreaming(false)
 
@@ -173,6 +229,9 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         }
       } catch (error) {
         unsubChunk()
+        unsubToolUse()
+        unsubToolResult()
+        unsubThinking()
         unsubEnd()
         setIsStreaming(false)
 

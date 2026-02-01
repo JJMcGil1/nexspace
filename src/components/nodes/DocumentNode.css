@@ -7,6 +7,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 4px;
+  margin: -4px;
+  border-radius: 18px;
+  transition: background-color 0.15s ease;
 }
 
 /* ── Header Row (title + hover nav) ───────────────────── */
@@ -41,12 +45,15 @@
   align-items: center;
   gap: 8px;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.15s ease;
 }
 
-.document-node-wrapper:hover .document-node__hover-nav,
+/* Hover via direct DOM class added by FlowCanvas */
+.rf-node-hovered .document-node__hover-nav,
 .document-node__hover-nav:has(.document-node__more-menu) {
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* Remove group wrappers - use display:contents */
@@ -55,7 +62,14 @@
 }
 
 .document-node__hover-nav-divider {
-  display: none;
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 2px;
+}
+
+.document-node-wrapper--light .document-node__hover-nav-divider {
+  background: rgba(0, 0, 0, 0.1);
 }
 
 /* Each button is its own circular container */
@@ -212,8 +226,16 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-.document-node-wrapper--dark:hover .document-node--dark {
-  border-color: #6366f1;
+/* Hover via direct DOM class */
+.rf-node-hovered .document-node--dark {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.15);
+}
+
+.rf-node-hovered .document-node__base--dark {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.06);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.1);
 }
 
 .document-node--dark.document-node--selected {
@@ -228,8 +250,16 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-.document-node-wrapper--light:hover .document-node--light {
-  border-color: #6366f1;
+/* Hover via direct DOM class */
+.rf-node-hovered .document-node--light {
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(99, 102, 241, 0.1);
+}
+
+.rf-node-hovered .document-node__base--light {
+  border-color: rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.04);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08);
 }
 
 .document-node--light.document-node--selected {
@@ -237,17 +267,31 @@
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2), 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-/* ── Icon (in external title) ──────────────────────────── */
-.document-node__icon {
+/* ── Node Base (container that card sits on) ───────────── */
+.document-node__base {
+  position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  background: rgba(99, 102, 241, 0.15);
-  border-radius: 5px;
-  color: var(--color-accent);
-  flex-shrink: 0;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.document-node__base--dark {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.document-node__base--light {
+  background: rgba(0, 0, 0, 0.015);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+/* Card inside base needs adjusted border-radius */
+.document-node__base .document-node {
+  border-radius: 12px;
+  margin: 2px;
+  margin-bottom: 0;
 }
 
 /* ── Title (in external title) ─────────────────────────── */
@@ -489,4 +533,27 @@
 
 .document-node--light .document-node__toolbar-divider {
   background: rgba(0, 0, 0, 0.1);
+}
+
+/* ── Node Type Footer (inside base, below card) ─────────── */
+.document-node__type-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 8px 14px;
+}
+
+.document-node__type-icon {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.document-node__type-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  letter-spacing: 0.01em;
+  opacity: 0.8;
 }

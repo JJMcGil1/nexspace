@@ -2,8 +2,29 @@ import React, { useState, useRef } from 'react'
 import { LuSettings, LuSearch, LuPlus, LuPencil, LuCopy, LuTrash2, LuImage } from 'react-icons/lu'
 import { HiOutlineDotsHorizontal } from 'react-icons/hi'
 import { useUser, NEXSPACE_COLORS } from '../contexts/UserContext'
+import { useCanvas } from '../contexts/CanvasContext'
 import DropdownMenu, { DropdownMenuItem } from './DropdownMenu'
 import './Sidebar.css'
+
+// Format timestamp to human-readable relative time
+function formatRelativeTime(isoString: string): string {
+  const date = new Date(isoString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffSecs = Math.floor(diffMs / 1000)
+  const diffMins = Math.floor(diffSecs / 60)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffSecs < 60) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays}d ago`
+
+  // For older dates, show formatted date
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
 
 interface SidebarProps {
   isOpen: boolean
@@ -12,7 +33,8 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
   const { user, nexspaces, addNexSpace, updateNexSpace, deleteNexSpace } = useUser()
-  const [activeNexSpaceId, setActiveNexSpaceId] = useState<string | null>(nexspaces[0]?.id || null)
+  const { currentNexSpaceId, loadNexSpace } = useCanvas()
+  // Use currentNexSpaceId directly from context - no redundant local state
   const [searchQuery, setSearchQuery] = useState('')
   const [isCreating, setIsCreating] = useState(false)
 
@@ -34,6 +56,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
     ns.title.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const handleSelectNexSpace = async (nexspaceId: string) => {
+    if (nexspaceId === currentNexSpaceId) return
+    await loadNexSpace(nexspaceId)
+  }
+
   const handleNewNexSpace = async () => {
     if (isCreating) return
     setIsCreating(true)
@@ -41,7 +68,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
       // Pick a random color for the new nexspace
       const randomColor = NEXSPACE_COLORS[Math.floor(Math.random() * NEXSPACE_COLORS.length)]
       const newNexSpace = await addNexSpace('Untitled Space', undefined, randomColor)
-      setActiveNexSpaceId(newNexSpace.id)
+      // Load the new nexspace into canvas context
+      await loadNexSpace(newNexSpace.id)
     } catch (error) {
       console.error('Failed to create NexSpace:', error)
     } finally {
@@ -118,9 +146,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
         break
       case 'delete':
         await deleteNexSpace(menuNexSpaceId)
-        if (activeNexSpaceId === menuNexSpaceId) {
+        // If deleting current nexspace, load another one
+        if (currentNexSpaceId === menuNexSpaceId) {
           const remaining = nexspaces.filter(ns => ns.id !== menuNexSpaceId)
-          setActiveNexSpaceId(remaining[0]?.id || null)
+          if (remaining.length > 0) {
+            await loadNexSpace(remaining[0].id)
+          }
         }
         break
     }
@@ -197,14 +228,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
             </div>
           )}
           {filteredNexSpaces.map((nexspace) => {
-            const isActive = activeNexSpaceId === nexspace.id
+            const isActive = currentNexSpaceId === nexspace.id
             const isRenaming = renamingId === nexspace.id
 
             return (
               <div
                 key={nexspace.id}
                 className={`sidebar__nexspace-item ${isActive ? 'sidebar__nexspace-item--active' : ''}`}
-                onClick={() => !isRenaming && setActiveNexSpaceId(nexspace.id)}
+                onClick={() => !isRenaming && handleSelectNexSpace(nexspace.id)}
                 role="button"
                 tabIndex={0}
               >
@@ -245,7 +276,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
                   ) : (
                     <>
                       <span className="sidebar__nexspace-title">{nexspace.title}</span>
-                      <span className="sidebar__nexspace-time">{nexspace.lastEdited}</span>
+                      <span className="sidebar__nexspace-time">{formatRelativeTime(nexspace.lastEdited)}</span>
                     </>
                   )}
                 </div>

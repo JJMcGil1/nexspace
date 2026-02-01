@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
-import { IoMove } from 'react-icons/io5'
+import { IoMove, IoDocumentTextOutline } from 'react-icons/io5'
 import { LuCopy, LuMaximize2, LuEllipsisVertical, LuTrash2 } from 'react-icons/lu'
 import { useTheme } from '../../contexts/ThemeContext'
 import './DocumentNode.css'
@@ -153,28 +153,13 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   }, [editor])
 
   return (
-    <div className={`document-node-wrapper ${isDark ? 'document-node-wrapper--dark' : 'document-node-wrapper--light'}`}>
+    <div
+      className={`document-node-wrapper ${isDark ? 'document-node-wrapper--dark' : 'document-node-wrapper--light'}`}
+    >
       {/* Header row: title on left, hover nav on right */}
       <div className="document-node__header-row">
         {/* External title - positioned above the card */}
         <div className="document-node__external-title">
-          <div className="document-node__icon">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M4 2h5.5L13 5.5V13a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M9 2v4h4M5.5 8h5M5.5 10.5h5"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
           {isEditingTitle ? (
             <input
               type="text"
@@ -200,10 +185,6 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
         {/* Hover navigation - all separate circular buttons */}
         <div className="document-node__hover-nav">
-          <div className="document-node__hover-btn document-node__drag-handle" title="Move">
-            <IoMove size={16} />
-          </div>
-
           <button
             type="button"
             className="document-node__hover-btn"
@@ -245,17 +226,32 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
               </div>
             )}
           </div>
+
+          <div className="document-node__hover-nav-divider" />
+
+          <div className="document-node__hover-btn document-node__drag-handle" title="Move">
+            <IoMove size={16} />
+          </div>
         </div>
       </div>
 
-      {/* Main card */}
-      <div
-        className={`document-node ${isDark ? 'document-node--dark' : 'document-node--light'} ${selected ? 'document-node--selected' : ''}`}
-        onClick={handleCardClick}
-      >
-        {/* TipTap Editor */}
-        <div className="document-node__content nodrag nowheel">
-          <EditorContent editor={editor} />
+      {/* Node base - the footer that the card sits on top of */}
+      <div className={`document-node__base ${isDark ? 'document-node__base--dark' : 'document-node__base--light'}`}>
+        {/* Main card - sits on top of the base */}
+        <div
+          className={`document-node ${isDark ? 'document-node--dark' : 'document-node--light'} ${selected ? 'document-node--selected' : ''}`}
+          onClick={handleCardClick}
+        >
+          {/* TipTap Editor */}
+          <div className="document-node__content nodrag nowheel">
+            <EditorContent editor={editor} />
+          </div>
+        </div>
+
+        {/* Node type footer - visible below the card */}
+        <div className="document-node__type-footer">
+          <IoDocumentTextOutline size={14} className="document-node__type-icon" />
+          <span className="document-node__type-label">Document</span>
         </div>
       </div>
     </div>

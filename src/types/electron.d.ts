@@ -32,12 +32,26 @@ interface ClaudeSendMessageResult {
   message?: string
 }
 
+interface ToolUse {
+  id: string
+  name: string
+  input: unknown
+}
+
+interface ToolResult {
+  tool_use_id: string
+  content: string
+}
+
 interface ClaudeAPI {
   getToken: () => Promise<ClaudeTokenResult>
   login: () => Promise<ClaudeLoginResult>
   sendMessage: (params: ClaudeSendMessageParams) => Promise<ClaudeSendMessageResult>
   onStreamChunk: (callback: (chunk: string) => void) => () => void
   onStreamEnd: (callback: () => void) => () => void
+  onToolUse: (callback: (tool: ToolUse) => void) => () => void
+  onToolResult: (callback: (result: ToolResult) => void) => () => void
+  onThinking: (callback: (thinking: string) => void) => () => void
 }
 
 interface StoreAPI {
@@ -69,6 +83,32 @@ export interface StoreData {
   }
 }
 
+// Canvas node as stored (serializable subset of React Flow node)
+export interface CanvasNode {
+  id: string
+  type: string
+  position: { x: number; y: number }
+  data: Record<string, unknown>
+}
+
+// Canvas edge as stored
+export interface CanvasEdge {
+  id: string
+  source: string
+  target: string
+  sourceHandle?: string | null
+  targetHandle?: string | null
+}
+
+// Chat message as stored
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string // ISO string for serialization
+  isError?: boolean
+}
+
 // A NexSpace is a workspace/canvas for AI collaboration
 export interface NexSpace {
   id: string
@@ -77,6 +117,35 @@ export interface NexSpace {
   coverColor?: string // Fallback color if no image
   lastEdited: string
   createdAt: string
+  // Canvas state
+  nodes: CanvasNode[]
+  edges: CanvasEdge[]
+  // Chat state
+  chatMessages: ChatMessage[]
+}
+
+// Canvas API for MCP tools / agent access
+interface CanvasAPIResult<T> {
+  success: boolean
+  error?: string
+  nodes?: CanvasNode[]
+  edges?: CanvasEdge[]
+  node?: CanvasNode
+}
+
+interface CanvasAPI {
+  getNodes: () => Promise<{ success: boolean; nodes: CanvasNode[] }>
+  getEdges: () => Promise<{ success: boolean; edges: CanvasEdge[] }>
+  getNodeContent: (nodeId: string) => Promise<{ success: boolean; node?: CanvasNode; error?: string }>
+  addNode: (node: { type: string; position?: { x: number; y: number }; data: Record<string, unknown> }) => Promise<{ success: boolean }>
+  updateNode: (nodeId: string, data: Record<string, unknown>) => Promise<{ success: boolean }>
+  deleteNode: (nodeId: string) => Promise<{ success: boolean }>
+  // Listeners for main process requests
+  onAddNode: (callback: (node: { type: string; position?: { x: number; y: number }; data: Record<string, unknown> }) => void) => () => void
+  onUpdateNode: (callback: (payload: { nodeId: string; data: Record<string, unknown> }) => void) => () => void
+  onDeleteNode: (callback: (payload: { nodeId: string }) => void) => () => void
+  // Listen for canvas refresh after MCP tool operations
+  onRefresh: (callback: (nexspaces: NexSpace[]) => void) => () => void
 }
 
 export interface ElectronAPI {
@@ -86,6 +155,7 @@ export interface ElectronAPI {
   platform: NodeJS.Platform
   claude: ClaudeAPI
   store: StoreAPI
+  canvas: CanvasAPI
 }
 
 declare global {
