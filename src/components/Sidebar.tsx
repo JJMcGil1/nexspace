@@ -52,9 +52,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
   const coverInputRef = useRef<HTMLInputElement>(null)
   const [uploadingCoverId, setUploadingCoverId] = useState<string | null>(null)
 
-  const filteredNexSpaces = nexspaces.filter(ns =>
-    ns.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Deduplicate nexspaces by ID (keep first occurrence) and filter by search
+  const filteredNexSpaces = nexspaces
+    .filter((ns, index, arr) => arr.findIndex(n => n.id === ns.id) === index) // Dedupe
+    .filter(ns => ns.title.toLowerCase().includes(searchQuery.toLowerCase()))
 
   const handleSelectNexSpace = async (nexspaceId: string) => {
     if (nexspaceId === currentNexSpaceId) return

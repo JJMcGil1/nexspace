@@ -8,9 +8,10 @@
   flex-direction: column;
   gap: 8px;
   padding: 4px;
-  margin: -4px;
   border-radius: 18px;
   transition: background-color 0.15s ease;
+  /* Ensure minimum dimensions for minimap visibility */
+  min-width: 320px;
 }
 
 /* ── Header Row (title + hover nav) ───────────────────── */
@@ -49,11 +50,19 @@
   transition: opacity 0.15s ease;
 }
 
-/* Hover via direct DOM class added by FlowCanvas */
+/* Hover via CSS :hover on wrapper, React Flow node, or direct DOM class */
+.document-node-wrapper:hover .document-node__hover-nav,
+.react-flow__node:hover .document-node__hover-nav,
+.react-flow__node.selected .document-node__hover-nav,
 .rf-node-hovered .document-node__hover-nav,
 .document-node__hover-nav:has(.document-node__more-menu) {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Ensure React Flow node wrapper allows pointer events */
+.react-flow__node {
+  pointer-events: all !important;
 }
 
 /* Remove group wrappers - use display:contents */
@@ -226,12 +235,18 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-/* Hover via direct DOM class */
+/* Hover via CSS :hover or direct DOM class */
+.document-node-wrapper:hover .document-node--dark,
+.react-flow__node:hover .document-node--dark,
+.react-flow__node.selected .document-node--dark,
 .rf-node-hovered .document-node--dark {
   border-color: rgba(99, 102, 241, 0.6);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.15);
 }
 
+.document-node-wrapper:hover .document-node__base--dark,
+.react-flow__node:hover .document-node__base--dark,
+.react-flow__node.selected .document-node__base--dark,
 .rf-node-hovered .document-node__base--dark {
   border-color: rgba(99, 102, 241, 0.4);
   background: rgba(99, 102, 241, 0.06);
@@ -250,12 +265,18 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-/* Hover via direct DOM class */
+/* Hover via CSS :hover or direct DOM class */
+.document-node-wrapper:hover .document-node--light,
+.react-flow__node:hover .document-node--light,
+.react-flow__node.selected .document-node--light,
 .rf-node-hovered .document-node--light {
   border-color: rgba(99, 102, 241, 0.5);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(99, 102, 241, 0.1);
 }
 
+.document-node-wrapper:hover .document-node__base--light,
+.react-flow__node:hover .document-node__base--light,
+.react-flow__node.selected .document-node__base--light,
 .rf-node-hovered .document-node__base--light {
   border-color: rgba(99, 102, 241, 0.3);
   background: rgba(99, 102, 241, 0.04);

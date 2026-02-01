@@ -1,0 +1,75 @@
+/* ═══════════════════════════════════════════════════════════
+   LayoutToggleButtons — Unified toggle group
+   ═══════════════════════════════════════════════════════════ */
+
+.layout-toggles {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.layout-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.layout-toggle:hover {
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.layout-toggle:active {
+  transform: scale(0.95);
+  transition: transform 0.06s ease;
+}
+
+.layout-toggle--active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.layout-toggle--active:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Light Mode
+   ═══════════════════════════════════════════════════════════ */
+
+[data-theme="light"] .layout-toggles {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .layout-toggle {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .layout-toggle:hover {
+  color: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .layout-toggle--active {
+  color: #5b5fc7;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+[data-theme="light"] .layout-toggle--active:hover {
+  background: rgba(99, 102, 241, 0.14);
+}

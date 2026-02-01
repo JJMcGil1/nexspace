@@ -87,6 +87,13 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const saveCanvas = useCallback(async () => {
     if (!currentNexSpaceId || !currentNexSpace) return
 
+    // Debug: Check tool calls in chat messages being saved
+    const messagesWithTools = chatMessages.filter(m => m.toolCalls && m.toolCalls.length > 0)
+    console.log('[CanvasContext] Saving - messages with toolCalls:', messagesWithTools.length)
+    messagesWithTools.forEach(m => {
+      console.log(`[CanvasContext] Message ${m.id} has ${m.toolCalls?.length} tool calls`)
+    })
+
     const updatedNexSpace: NexSpace = {
       ...currentNexSpace,
       nodes,
@@ -107,8 +114,8 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log('[CanvasContext] Saved canvas state for NexSpace:', currentNexSpaceId)
   }, [currentNexSpaceId, currentNexSpace, nodes, edges, chatMessages])
 
-  // Debounced auto-save
-  const debouncedSave = useDebouncedCallback(saveCanvas, 1000)
+  // Debounced auto-save (reduced to 300ms for responsiveness)
+  const debouncedSave = useDebouncedCallback(saveCanvas, 300)
 
   // Auto-save when dirty
   useEffect(() => {
@@ -117,12 +124,46 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [isDirty, currentNexSpaceId, debouncedSave])
 
+  // Track previous node count to detect structural changes
+  const prevNodeCountRef = useRef(nodes.length)
+
+  // Immediate save when nodes are added/removed (structural changes)
+  useEffect(() => {
+    if (prevNodeCountRef.current !== nodes.length && currentNexSpaceId && currentNexSpace) {
+      console.log('[CanvasContext] Node count changed:', prevNodeCountRef.current, '->', nodes.length, '- saving immediately')
+      prevNodeCountRef.current = nodes.length
+      // Call saveCanvas directly (not debounced) for structural changes
+      saveCanvas()
+    }
+  }, [nodes.length, currentNexSpaceId, currentNexSpace, saveCanvas])
+
+  // Track previous chat message count for immediate save on new messages
+  const prevChatCountRef = useRef(chatMessages.length)
+
+  // Immediate save when chat messages are added (ensures tool calls are persisted)
+  useEffect(() => {
+    if (prevChatCountRef.current !== chatMessages.length && currentNexSpaceId && currentNexSpace) {
+      console.log('[CanvasContext] Chat message count changed:', prevChatCountRef.current, '->', chatMessages.length, '- saving immediately')
+      prevChatCountRef.current = chatMessages.length
+      // Call saveCanvas directly (not debounced) for new messages
+      saveCanvas()
+    }
+  }, [chatMessages.length, currentNexSpaceId, currentNexSpace, saveCanvas])
+
   // ─────────────────────────────────────────────────────────
   // Node/Edge setters that mark dirty
   // ─────────────────────────────────────────────────────────
 
   const setNodes = useCallback((update: CanvasNode[] | ((prev: CanvasNode[]) => CanvasNode[])) => {
-    setNodesState(update)
+    setNodesState(prev => {
+      const newNodes = typeof update === 'function' ? update(prev) : update
+      // Detect structural changes (add/remove) for immediate save
+      if (newNodes.length !== prev.length) {
+        console.log('[CanvasContext] Node count changed, triggering immediate save')
+        // We'll trigger immediate save via a separate effect
+      }
+      return newNodes
+    })
     setIsDirty(true)
   }, [])
 
@@ -132,7 +173,17 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [])
 
   const setChatMessages = useCallback((update: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
-    setChatMessagesState(update)
+    setChatMessagesState(prev => {
+      const newMessages = typeof update === 'function' ? update(prev) : update
+      // Check if new messages have tool calls - if so, we want to save immediately
+      const newMsgsWithTools = newMessages.filter(m =>
+        m.toolCalls && m.toolCalls.length > 0 && !prev.some(p => p.id === m.id)
+      )
+      if (newMsgsWithTools.length > 0) {
+        console.log('[CanvasContext] New messages with toolCalls detected, will save immediately')
+      }
+      return newMessages
+    })
     setIsDirty(true)
   }, [])
 
@@ -180,7 +231,8 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const addChatMessage = useCallback((message: ChatMessage) => {
     console.log('[CanvasContext] addChatMessage called with id:', message.id, 'role:', message.role)
-    console.trace('[CanvasContext] addChatMessage stack trace')
+    console.log('[CanvasContext] addChatMessage toolCalls:', message.toolCalls?.length || 0, JSON.stringify(message.toolCalls))
+    console.log('[CanvasContext] addChatMessage thinking:', message.thinking?.substring(0, 50))
     setChatMessages(prev => {
       // PREVENT DUPLICATES: Check if message with this ID already exists
       if (prev.some(m => m.id === message.id)) {
@@ -264,6 +316,13 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log('[CanvasContext] LOADING nexspace:', id)
       console.log('[CanvasContext] Messages in store:', nexspace.chatMessages?.length || 0)
 
+      // Debug: Check if loaded messages have tool calls
+      const loadedMessagesWithTools = (nexspace.chatMessages || []).filter(m => m.toolCalls && m.toolCalls.length > 0)
+      console.log('[CanvasContext] Loaded messages with toolCalls:', loadedMessagesWithTools.length)
+      loadedMessagesWithTools.forEach(m => {
+        console.log(`[CanvasContext] Loaded message ${m.id} has ${m.toolCalls?.length} tool calls:`, m.toolCalls)
+      })
+
       // STEP 4: Set all state with fresh data from store
       setCurrentNexSpaceId(id)
       setCurrentNexSpace(nexspace)
@@ -311,6 +370,38 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [])
 
   // ─────────────────────────────────────────────────────────
+  // Force save on window close/refresh
+  // ─────────────────────────────────────────────────────────
+
+  // Keep refs for the latest state to access in beforeunload
+  const stateRef = useRef({ currentNexSpaceId, currentNexSpace, nodes, edges, chatMessages })
+  stateRef.current = { currentNexSpaceId, currentNexSpace, nodes, edges, chatMessages }
+
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      const { currentNexSpaceId, currentNexSpace, nodes, edges, chatMessages } = stateRef.current
+      if (!currentNexSpaceId || !currentNexSpace) return
+
+      console.log('[CanvasContext] beforeunload - force saving nodes:', nodes.length)
+      const updatedNexSpace = {
+        ...currentNexSpace,
+        nodes,
+        edges,
+        chatMessages,
+        lastEdited: new Date().toISOString(),
+      }
+      const allNexSpaces = await window.electronAPI.store.get('nexspaces') || []
+      const updatedNexSpaces = allNexSpaces.map((ns: { id: string }) =>
+        ns.id === currentNexSpaceId ? updatedNexSpace : ns
+      )
+      await window.electronAPI.store.set('nexspaces', updatedNexSpaces)
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
+
+  // ─────────────────────────────────────────────────────────
   // Load default NexSpace on mount ONLY (not on state changes)
   // ─────────────────────────────────────────────────────────
 
@@ -332,6 +423,16 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // Directly load without using the loadNexSpace callback (which has changing deps)
         const nexspace = sorted[0]
         console.log('[CanvasContext] Initial load nexspace:', nexspace.id)
+        console.log('[CanvasContext] Initial nodes from store:', nexspace.nodes?.length || 0, nexspace.nodes?.map(n => n.id))
+        console.log('[CanvasContext] Initial messages from store:', nexspace.chatMessages?.length || 0)
+
+        // Debug: Check if initial messages have tool calls
+        const initialMessagesWithTools = (nexspace.chatMessages || []).filter(m => m.toolCalls && m.toolCalls.length > 0)
+        console.log('[CanvasContext] Initial messages with toolCalls:', initialMessagesWithTools.length)
+        initialMessagesWithTools.forEach(m => {
+          console.log(`[CanvasContext] Initial message ${m.id} has ${m.toolCalls?.length} tool calls`)
+        })
+
         setCurrentNexSpaceId(nexspace.id)
         setCurrentNexSpace(nexspace)
         setNodesState(nexspace.nodes || [])

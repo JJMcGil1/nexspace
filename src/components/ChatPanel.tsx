@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { FaArrowUp, FaStop } from 'react-icons/fa'
-import { LuChevronDown, LuCheck } from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuCheck, LuLoader, LuCircleCheck, LuBrain, LuPaperclip, LuX } from 'react-icons/lu'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAI, AVAILABLE_MODELS, ClaudeModel, ToolCall } from '../contexts/AIContext'
 import { useCanvas } from '../contexts/CanvasContext'
@@ -8,6 +8,41 @@ import type { ChatMessage as StoredChatMessage } from '../types/electron'
 import NexoIconDark from '../assets/nexspace-icon-dark.svg'
 import NexoIconLight from '../assets/nexspace-icon-light.svg'
 import './ChatPanel.css'
+
+// Collapsible tool call item
+const ToolCallItem: React.FC<{ tool: ToolCall }> = ({ tool }) => {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const isPending = tool.status === 'pending'
+  const toolName = tool.name.replace('mcp__nexspace-canvas__', '')
+
+  return (
+    <div className={`tool-call ${isPending ? 'tool-call--pending' : 'tool-call--complete'}`}>
+      <button
+        type="button"
+        className="tool-call__header"
+        onClick={() => setIsExpanded(!isExpanded)}
+        aria-expanded={isExpanded}
+      >
+        <span className="tool-call__status">
+          {isPending ? (
+            <LuLoader className="tool-call__icon tool-call__icon--spin" />
+          ) : (
+            <LuCircleCheck className="tool-call__icon tool-call__icon--done" />
+          )}
+        </span>
+        <span className="tool-call__name">{toolName}</span>
+        {tool.result && (
+          <LuChevronRight className={`tool-call__chevron ${isExpanded ? 'tool-call__chevron--open' : ''}`} />
+        )}
+      </button>
+      {isExpanded && tool.result && (
+        <div className="tool-call__result">
+          <pre>{tool.result}</pre>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Unique ID generator to avoid React key collisions
 let messageIdCounter = 0
@@ -51,6 +86,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
   const [streamingThinking, setStreamingThinking] = useState<string>('')
   const [input, setInput] = useState('')
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
+  const [attachedImages, setAttachedImages] = useState<{ id: string; file: File; preview: string }[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Clear any streaming state when switching nexspaces
   // This prevents messages from "bleeding" between nexspaces
@@ -64,12 +101,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
   // Convert stored messages to UI messages
   // Use currentNexSpaceId in dependency to ensure re-render on nexspace switch
   const messages = useMemo((): Message[] => {
+    // Debug: Check stored messages for tool calls
+    const withTools = chatMessages.filter(m => m.toolCalls && m.toolCalls.length > 0)
+    if (withTools.length > 0) {
+      console.log(`[ChatPanel] useMemo: ${withTools.length} messages have tool calls`)
+    }
+
     const storedMessages: Message[] = chatMessages.map(msg => ({
       id: msg.id,
       role: msg.role,
       content: msg.content,
       timestamp: new Date(msg.timestamp),
       isError: msg.isError,
+      // Include persisted tool calls and thinking
+      toolCalls: msg.toolCalls as ToolCall[] | undefined,
+      thinking: msg.thinking,
     }))
 
     // Append streaming message ONLY if it's not already persisted
@@ -95,6 +141,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const streamingMessageIdRef = useRef<string | null>(null)
   const modelDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Refs to capture tool calls and thinking for persistence (needed because setState callback can't access other state)
+  const toolCallsRef = useRef<ToolCall[]>([])
+  const thinkingRef = useRef<string>('')
 
   const NexoIcon = theme === 'dark' ? NexoIconDark : NexoIconLight
 
@@ -133,6 +183,46 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
   }
 
   const currentModel = AVAILABLE_MODELS.find(m => m.id === model) || AVAILABLE_MODELS[0]
+
+  // Handle file attachment
+  const handleAttachClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+
+    const newImages = Array.from(files)
+      .filter(file => file.type.startsWith('image/'))
+      .slice(0, 4 - attachedImages.length) // Max 4 images
+      .map(file => ({
+        id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        preview: URL.createObjectURL(file),
+      }))
+
+    setAttachedImages(prev => [...prev, ...newImages].slice(0, 4))
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }
+
+  const handleRemoveImage = (id: string) => {
+    setAttachedImages(prev => {
+      const image = prev.find(img => img.id === id)
+      if (image) {
+        URL.revokeObjectURL(image.preview)
+      }
+      return prev.filter(img => img.id !== id)
+    })
+  }
+
+  // Cleanup previews on unmount
+  useEffect(() => {
+    return () => {
+      attachedImages.forEach(img => URL.revokeObjectURL(img.preview))
+    }
+  }, [])
 
   const handleSend = useCallback(() => {
     const text = input.trim()
@@ -175,8 +265,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
     setStreamingToolCalls([])
     setStreamingThinking('')
     setInput('')
+    // Clear attached images after sending
+    attachedImages.forEach(img => URL.revokeObjectURL(img.preview))
+    setAttachedImages([])
 
     // Send to API with all callbacks
+    // Reset refs for new message
+    toolCallsRef.current = []
+    thinkingRef.current = ''
+
     sendMessage(text, chatHistory, {
       // onChunk - append streamed text
       onChunk: (chunk: string) => {
@@ -186,37 +283,68 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
       },
       // onToolUse - track tool call
       onToolUse: (tool: ToolCall) => {
-        setStreamingToolCalls((prev) => [...prev, tool])
+        setStreamingToolCalls((prev) => {
+          const updated = [...prev, tool]
+          toolCallsRef.current = updated // Keep ref in sync
+          return updated
+        })
       },
       // onToolResult - update tool call with result
       onToolResult: (toolId: string, result: string) => {
-        setStreamingToolCalls((prev) =>
-          prev.map((t) =>
+        setStreamingToolCalls((prev) => {
+          const updated = prev.map((t) =>
             t.id === toolId ? { ...t, result, status: 'complete' as const } : t
           )
-        )
+          toolCallsRef.current = updated // Keep ref in sync
+          return updated
+        })
       },
       // onThinking - update thinking content
       onThinking: (thinking: string) => {
         setStreamingThinking(thinking)
+        thinkingRef.current = thinking // Keep ref in sync
       },
-      // onComplete - persist final message and clear streaming state
+      // onComplete - persist final message WITH tool calls and clear streaming state
       onComplete: () => {
         console.log('[ChatPanel] onComplete called')
+        console.log('[ChatPanel] toolCallsRef.current:', JSON.stringify(toolCallsRef.current))
+        console.log('[ChatPanel] thinkingRef.current:', thinkingRef.current?.substring(0, 50))
+
+        // Capture refs BEFORE clearing
+        const finalToolCalls = [...toolCallsRef.current]
+        const finalThinking = thinkingRef.current
+
+        // Get the streaming message ID to use
+        const msgId = streamingMessageIdRef.current
+
+        // Read streaming message state and persist
         setStreamingMessage((prev) => {
-          if (prev && prev.content) {
+          if (prev && (prev.content || finalToolCalls.length > 0)) {
+            // Build the final message to persist
             const finalMsg: StoredChatMessage = {
               id: prev.id,
               role: 'assistant',
               content: prev.content,
               timestamp: prev.timestamp.toISOString(),
+              // IMPORTANT: Persist tool calls and thinking with the message
+              toolCalls: finalToolCalls.length > 0 ? finalToolCalls : undefined,
+              thinking: finalThinking || undefined,
             }
+            console.log('[ChatPanel] Persisting message:', finalMsg.id)
+            console.log('[ChatPanel] With toolCalls:', finalMsg.toolCalls?.length || 0)
+            console.log('[ChatPanel] ToolCalls data:', JSON.stringify(finalMsg.toolCalls))
+
+            // Add to persistent storage immediately
             addChatMessage(finalMsg)
           }
           return null
         })
+
+        // Clear streaming state (React will batch these updates)
         setStreamingToolCalls([])
         setStreamingThinking('')
+        toolCallsRef.current = []
+        thinkingRef.current = ''
         streamingMessageIdRef.current = null
       },
       // onError - persist error message
@@ -228,16 +356,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
             content: `Error: ${error}`,
             timestamp: new Date().toISOString(),
             isError: true,
+            // Still persist any tool calls that happened before the error
+            toolCalls: toolCallsRef.current.length > 0 ? toolCallsRef.current : undefined,
           }
           addChatMessage(errorMsg)
           return null
         })
         setStreamingToolCalls([])
         setStreamingThinking('')
+        toolCallsRef.current = []
+        thinkingRef.current = ''
         streamingMessageIdRef.current = null
       },
     })
-  }, [input, isStreaming, isConfigured, chatHistory, sendMessage, addChatMessage])
+  }, [input, isStreaming, isConfigured, chatHistory, sendMessage, addChatMessage, attachedImages])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -249,15 +381,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
   const handleStopStreaming = () => {
     abortStream()
     if (streamingMessageIdRef.current && streamingMessage) {
-      // Persist the partial message with [stopped] marker
+      // Persist the partial message with [stopped] marker, including any tool calls
       const stoppedMsg: StoredChatMessage = {
         id: streamingMessage.id,
         role: 'assistant',
         content: streamingMessage.content + ' [stopped]',
         timestamp: streamingMessage.timestamp.toISOString(),
+        toolCalls: toolCallsRef.current.length > 0 ? toolCallsRef.current : undefined,
+        thinking: thinkingRef.current || undefined,
       }
       addChatMessage(stoppedMsg)
       setStreamingMessage(null)
+      setStreamingToolCalls([])
+      setStreamingThinking('')
+      toolCallsRef.current = []
+      thinkingRef.current = ''
       streamingMessageIdRef.current = null
     }
   }
@@ -335,10 +473,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
                 </span>
               </div>
 
-              {/* Thinking indicator (only for streaming message) */}
+              {/* Thinking indicator (for streaming message) */}
               {msg.isStreaming && streamingThinking && (
                 <div className="chat-msg__thinking">
-                  <span className="chat-msg__thinking-icon">🧠</span>
+                  <LuBrain className="chat-msg__thinking-icon" />
                   <span className="chat-msg__thinking-text">
                     {streamingThinking.length > 100
                       ? streamingThinking.substring(0, 100) + '...'
@@ -347,30 +485,34 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
                 </div>
               )}
 
-              {/* Tool calls (only for streaming message) */}
-              {msg.isStreaming && streamingToolCalls.length > 0 && (
-                <div className="chat-msg__tools">
-                  {streamingToolCalls.map((tool) => (
-                    <div key={tool.id} className={`chat-msg__tool chat-msg__tool--${tool.status}`}>
-                      <div className="chat-msg__tool-header">
-                        <span className="chat-msg__tool-icon">
-                          {tool.status === 'pending' ? '⏳' : '✅'}
-                        </span>
-                        <span className="chat-msg__tool-name">
-                          {tool.name.replace('mcp__nexspace-canvas__', '')}
-                        </span>
-                      </div>
-                      {tool.result && (
-                        <div className="chat-msg__tool-result">
-                          {tool.result.length > 200
-                            ? tool.result.substring(0, 200) + '...'
-                            : tool.result}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              {/* Persisted thinking (for completed messages) */}
+              {!msg.isStreaming && msg.thinking && (
+                <div className="chat-msg__thinking chat-msg__thinking--complete">
+                  <LuBrain className="chat-msg__thinking-icon" />
+                  <span className="chat-msg__thinking-text">
+                    {msg.thinking.length > 100
+                      ? msg.thinking.substring(0, 100) + '...'
+                      : msg.thinking}
+                  </span>
                 </div>
               )}
+
+              {/* Tool calls - collapsible one-liners */}
+              {(() => {
+                const toolsToShow = msg.isStreaming ? streamingToolCalls : (msg.toolCalls || [])
+                // Debug: log tool calls being rendered
+                if (!msg.isStreaming && msg.toolCalls) {
+                  console.log(`[ChatPanel] Render msg ${msg.id} toolCalls:`, msg.toolCalls.length, msg.toolCalls)
+                }
+                if (toolsToShow.length === 0) return null
+                return (
+                  <div className="tool-calls">
+                    {toolsToShow.map((tool) => (
+                      <ToolCallItem key={tool.id} tool={tool} />
+                    ))}
+                  </div>
+                )
+              })()}
 
               <div className="chat-msg__content">
                 {msg.content || (msg.isStreaming && !streamingThinking && streamingToolCalls.length === 0 && (
@@ -386,6 +528,35 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
       {/* Composer */}
       <div className="chat-composer">
         <div className="chat-composer__container">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+            className="chat-composer__file-input"
+          />
+
+          {/* Image previews */}
+          {attachedImages.length > 0 && (
+            <div className="chat-composer__images">
+              {attachedImages.map(img => (
+                <div key={img.id} className="chat-composer__image-preview">
+                  <img src={img.preview} alt="Attached" />
+                  <button
+                    type="button"
+                    className="chat-composer__image-remove"
+                    onClick={() => handleRemoveImage(img.id)}
+                    aria-label="Remove image"
+                  >
+                    <LuX size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <textarea
             ref={textareaRef}
             className="chat-composer__input"
@@ -397,41 +568,56 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
             disabled={isStreaming}
           />
           <div className="chat-composer__actions">
-            {/* Model selector dropdown */}
-            <div className="model-dropdown" ref={modelDropdownRef}>
+            {/* Left side: Model selector + Attach button */}
+            <div className="chat-composer__actions-left">
+              {/* Model selector dropdown */}
+              <div className="model-dropdown" ref={modelDropdownRef}>
+                <button
+                  className={`model-dropdown__trigger ${isModelDropdownOpen ? 'model-dropdown__trigger--open' : ''}`}
+                  onClick={() => !isStreaming && setIsModelDropdownOpen(!isModelDropdownOpen)}
+                  disabled={isStreaming}
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={isModelDropdownOpen}
+                >
+                  <span className="model-dropdown__label">{currentModel.name}</span>
+                  <LuChevronDown className={`model-dropdown__chevron ${isModelDropdownOpen ? 'model-dropdown__chevron--open' : ''}`} />
+                </button>
+                {isModelDropdownOpen && (
+                  <div className="model-dropdown__menu" role="listbox">
+                    {AVAILABLE_MODELS.map((m) => (
+                      <button
+                        key={m.id}
+                        className={`model-dropdown__item ${m.id === model ? 'model-dropdown__item--selected' : ''}`}
+                        onClick={() => handleModelSelect(m.id)}
+                        role="option"
+                        aria-selected={m.id === model}
+                        type="button"
+                      >
+                        <div className="model-dropdown__item-content">
+                          <span className="model-dropdown__item-name">{m.name}</span>
+                          <span className="model-dropdown__item-desc">{m.description}</span>
+                        </div>
+                        {m.id === model && <LuCheck className="model-dropdown__item-check" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Attach button */}
               <button
-                className={`model-dropdown__trigger ${isModelDropdownOpen ? 'model-dropdown__trigger--open' : ''}`}
-                onClick={() => !isStreaming && setIsModelDropdownOpen(!isModelDropdownOpen)}
-                disabled={isStreaming}
                 type="button"
-                aria-haspopup="listbox"
-                aria-expanded={isModelDropdownOpen}
+                className="chat-composer__attach"
+                onClick={handleAttachClick}
+                disabled={isStreaming || attachedImages.length >= 4}
+                aria-label="Attach image"
               >
-                <span className="model-dropdown__label">{currentModel.name}</span>
-                <LuChevronDown className={`model-dropdown__chevron ${isModelDropdownOpen ? 'model-dropdown__chevron--open' : ''}`} />
+                <LuPaperclip size={16} />
               </button>
-              {isModelDropdownOpen && (
-                <div className="model-dropdown__menu" role="listbox">
-                  {AVAILABLE_MODELS.map((m) => (
-                    <button
-                      key={m.id}
-                      className={`model-dropdown__item ${m.id === model ? 'model-dropdown__item--selected' : ''}`}
-                      onClick={() => handleModelSelect(m.id)}
-                      role="option"
-                      aria-selected={m.id === model}
-                      type="button"
-                    >
-                      <div className="model-dropdown__item-content">
-                        <span className="model-dropdown__item-name">{m.name}</span>
-                        <span className="model-dropdown__item-desc">{m.description}</span>
-                      </div>
-                      {m.id === model && <LuCheck className="model-dropdown__item-check" />}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-            {/* Send/Stop button */}
+
+            {/* Right side: Send/Stop button */}
             {isStreaming ? (
               <button
                 className="chat-composer__send chat-composer__send--stop"
@@ -443,9 +629,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
               </button>
             ) : (
               <button
-                className={`chat-composer__send ${input.trim() ? 'chat-composer__send--active' : ''}`}
+                className={`chat-composer__send ${input.trim() || attachedImages.length > 0 ? 'chat-composer__send--active' : ''}`}
                 onClick={handleSend}
-                disabled={!input.trim()}
+                disabled={!input.trim() && attachedImages.length === 0}
                 aria-label="Send"
                 type="button"
               >

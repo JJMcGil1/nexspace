@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
-import { IoMove, IoDocumentTextOutline } from 'react-icons/io5'
+import { IoMove, IoDocumentText } from 'react-icons/io5'
 import { LuCopy, LuMaximize2, LuEllipsisVertical, LuTrash2 } from 'react-icons/lu'
 import { useTheme } from '../../contexts/ThemeContext'
 import './DocumentNode.css'
@@ -27,6 +27,20 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const moreMenuRef = useRef<HTMLDivElement>(null)
 
+  // Debounce timer for content saves
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Save content to node data (debounced to prevent focus loss)
+  const saveContent = useCallback((html: string) => {
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? { ...node, data: { ...node.data, content: html } }
+          : node
+      )
+    )
+  }, [id, setNodes])
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -44,14 +58,21 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     ],
     content: nodeData.content || '',
     onUpdate: ({ editor }) => {
-      // Save content back to node data
-      setNodes((nodes) =>
-        nodes.map((node) =>
-          node.id === id
-            ? { ...node, data: { ...node.data, content: editor.getHTML() } }
-            : node
-        )
-      )
+      // Debounce content save to prevent re-renders while typing
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+      saveTimerRef.current = setTimeout(() => {
+        saveContent(editor.getHTML())
+      }, 500) // Save after 500ms of no typing
+    },
+    onBlur: ({ editor }) => {
+      // Save immediately when editor loses focus
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      saveContent(editor.getHTML())
     },
     editorProps: {
       attributes: {
@@ -59,6 +80,15 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       },
     },
   })
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+    }
+  }, [])
 
   // Update title in node data
   const handleTitleChange = useCallback(
@@ -148,8 +178,13 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   }, [id])
 
   // Focus editor when clicking anywhere on the card
-  const handleCardClick = useCallback(() => {
-    editor?.commands.focus('end')
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
+    // Don't steal focus if clicking on the editor itself (TipTap handles that)
+    const target = e.target as HTMLElement
+    if (target.closest('.ProseMirror')) return
+
+    // Focus editor - TipTap will place cursor appropriately
+    editor?.commands.focus()
   }, [editor])
 
   return (
@@ -236,11 +271,13 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       </div>
 
       {/* Node base - the footer that the card sits on top of */}
-      <div className={`document-node__base ${isDark ? 'document-node__base--dark' : 'document-node__base--light'}`}>
+      <div
+        className={`document-node__base ${isDark ? 'document-node__base--dark' : 'document-node__base--light'}`}
+        onClick={handleCardClick}
+      >
         {/* Main card - sits on top of the base */}
         <div
           className={`document-node ${isDark ? 'document-node--dark' : 'document-node--light'} ${selected ? 'document-node--selected' : ''}`}
-          onClick={handleCardClick}
         >
           {/* TipTap Editor */}
           <div className="document-node__content nodrag nowheel">
@@ -250,7 +287,7 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
         {/* Node type footer - visible below the card */}
         <div className="document-node__type-footer">
-          <IoDocumentTextOutline size={14} className="document-node__type-icon" />
+          <IoDocumentText size={14} className="document-node__type-icon" />
           <span className="document-node__type-label">Document</span>
         </div>
       </div>

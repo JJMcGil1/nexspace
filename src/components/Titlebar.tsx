@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { LuPlus, LuSearch, LuX } from 'react-icons/lu'
+import { LuPlus, LuSearch, LuX, LuFileText } from 'react-icons/lu'
 import { useTheme } from '../contexts/ThemeContext'
 import { useCanvas } from '../contexts/CanvasContext'
-import AppLayoutDropdown from './AppLayoutDropdown'
+import LayoutToggleButtons from './LayoutToggleButtons'
 import './Titlebar.css'
 
 interface TitlebarProps {
@@ -46,7 +46,7 @@ const Titlebar: React.FC<TitlebarProps> = ({
   const handleMaximize = () => window.electronAPI?.maximize()
   const handleClose = () => window.electronAPI?.close()
 
-  // Filter nodes based on search query
+  // Filter nodes based on search query - show all when no query
   const filteredNodes = searchQuery.trim()
     ? nodes.filter(node => {
         const title = String(node.data?.title || node.data?.label || '')
@@ -55,7 +55,7 @@ const Titlebar: React.FC<TitlebarProps> = ({
         return title.toLowerCase().includes(searchLower) ||
                content.toLowerCase().includes(searchLower)
       })
-    : []
+    : nodes
 
   // Handle node selection - dispatch event to focus on node in canvas
   const handleSelectNode = useCallback((nodeId: string) => {
@@ -101,7 +101,11 @@ const Titlebar: React.FC<TitlebarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const nexspaceName = currentNexSpace?.title || 'NexSpace'
+  // Truncate long nexspace names for placeholder
+  const fullNexspaceName = currentNexSpace?.title || 'NexSpace'
+  const nexspaceName = fullNexspaceName.length > 20
+    ? fullNexspaceName.slice(0, 20) + '...'
+    : fullNexspaceName
 
   return (
     <header className="titlebar drag-region">
@@ -155,9 +159,19 @@ const Titlebar: React.FC<TitlebarProps> = ({
         </svg>
       </div>
 
-      <div className="titlebar__spacer" />
+      {/* Layout toggles - positioned left of center */}
+      <div className="titlebar__layout-toggles-wrapper no-drag">
+        <LayoutToggleButtons
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={onToggleSidebar}
+          chatOpen={chatOpen}
+          onToggleChat={onToggleChat}
+          canvasOpen={canvasOpen}
+          onToggleCanvas={onToggleCanvas}
+        />
+      </div>
 
-      {/* Search bar */}
+      {/* Search bar - centered */}
       <div className="titlebar__search-container no-drag" ref={dropdownRef}>
         <div className={`titlebar__search ${isSearchFocused ? 'titlebar__search--focused' : ''}`}>
           <LuSearch className="titlebar__search-icon" size={14} />
@@ -165,7 +179,7 @@ const Titlebar: React.FC<TitlebarProps> = ({
             ref={searchInputRef}
             type="text"
             className="titlebar__search-input"
-            placeholder={`Search '${nexspaceName}'`}
+            placeholder={`Search ${nexspaceName}`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => setIsSearchFocused(true)}
@@ -186,7 +200,7 @@ const Titlebar: React.FC<TitlebarProps> = ({
         </div>
 
         {/* Search results dropdown */}
-        {isSearchFocused && searchQuery.trim() && (
+        {isSearchFocused && (
           <div className="titlebar__search-dropdown">
             {filteredNodes.length > 0 ? (
               filteredNodes.slice(0, 8).map((node, index) => (
@@ -196,32 +210,27 @@ const Titlebar: React.FC<TitlebarProps> = ({
                   onClick={() => handleSelectNode(node.id)}
                   onMouseEnter={() => setSelectedIndex(index)}
                 >
-                  <span className="titlebar__search-result-title">
-                    {String(node.data?.title || node.data?.label || 'Untitled')}
-                  </span>
+                  <div className="titlebar__search-result-left">
+                    <LuFileText className="titlebar__search-result-icon" size={14} />
+                    <span className="titlebar__search-result-title">
+                      {String(node.data?.title || node.data?.label || 'Untitled')}
+                    </span>
+                  </div>
                   <span className="titlebar__search-result-type">
-                    {node.type || 'node'}
+                    Document
                   </span>
                 </button>
               ))
             ) : (
               <div className="titlebar__search-empty">
-                No nodes found
+                No nodes in this NexSpace
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Layout dropdown */}
-      <AppLayoutDropdown
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={onToggleSidebar}
-        chatOpen={chatOpen}
-        onToggleChat={onToggleChat}
-        canvasOpen={canvasOpen}
-        onToggleCanvas={onToggleCanvas}
-      />
+      <div className="titlebar__spacer" />
 
       {/* New NexSpace button */}
       <button

@@ -23,7 +23,7 @@ import { useCanvas } from '../contexts/CanvasContext'
 import { nodeTypes, NODE_LIBRARY } from './nodes'
 import DocumentNodeFullscreen from './nodes/DocumentNodeFullscreen'
 import { LuLayoutTemplate } from 'react-icons/lu'
-import { IoDocumentTextOutline } from 'react-icons/io5'
+import { IoDocumentText } from 'react-icons/io5'
 import Tooltip from './Tooltip'
 import type { CanvasNode, CanvasEdge } from '../types/electron'
 
@@ -120,7 +120,7 @@ const NodeLibraryDropdown: React.FC<NodeLibraryDropdownProps> = ({
             }}
           >
             <div className="node-library-dropdown__item-icon">
-              {item.icon === 'document' && <IoDocumentTextOutline size={18} />}
+              {item.icon === 'document' && <IoDocumentText size={18} />}
             </div>
             <div className="node-library-dropdown__item-content">
               <span className="node-library-dropdown__item-label">{item.label}</span>
@@ -246,10 +246,14 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
   } = useCanvas()
 
   // Convert CanvasNode/CanvasEdge to React Flow types
-  const nodes: Node[] = useMemo(() => canvasNodes.map(n => ({
-    ...n,
-    data: n.data,
-  })), [canvasNodes])
+  const nodes: Node[] = useMemo(() => {
+    return canvasNodes.map(n => ({
+      id: n.id,
+      type: n.type,
+      position: n.position,
+      data: n.data,
+    }))
+  }, [canvasNodes])
 
   const edges: Edge[] = useMemo(() => canvasEdges.map(e => ({
     ...e,
@@ -258,10 +262,16 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
   })), [canvasEdges])
 
   // Handle node changes from React Flow
+  // IMPORTANT: Filter out 'dimensions' changes to prevent infinite re-renders
+  // React Flow constantly measures nodes and triggers dimension changes
   const onNodesChange: OnNodesChange = useCallback((changes) => {
+    // Filter to only meaningful changes (position, remove, add, select)
+    const meaningfulChanges = changes.filter(c => c.type !== 'dimensions')
+    if (meaningfulChanges.length === 0) return
+
     setCanvasNodes(prev => {
       const rfNodes = prev.map(n => ({ ...n, data: n.data })) as Node[]
-      const updated = applyNodeChanges(changes, rfNodes)
+      const updated = applyNodeChanges(meaningfulChanges, rfNodes)
       return updated.map(n => ({
         id: n.id,
         type: n.type || 'default',
@@ -286,7 +296,6 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
     })
   }, [setCanvasEdges])
 
-  const [nodeIdCounter, setNodeIdCounter] = useState(1)
   const [fullscreenNode, setFullscreenNode] = useState<FullscreenNodeState | null>(null)
   const [showMinimap, setShowMinimap] = useState(true)
 
@@ -307,8 +316,9 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
 
   const handleAddNode = useCallback(
     (type: string, defaultData: Record<string, unknown>) => {
+      // Use timestamp-based ID to ensure uniqueness across sessions
       const newNode: CanvasNode = {
-        id: `node-${nodeIdCounter}`,
+        id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         type,
         position: {
           x: 100 + (canvasNodes.length % 4) * 360,
@@ -316,10 +326,10 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
         },
         data: { ...defaultData },
       }
+      console.log('[FlowCanvas] Adding new node:', newNode.id)
       setCanvasNodes((nds) => [...nds, newNode])
-      setNodeIdCounter((c) => c + 1)
     },
-    [canvasNodes.length, nodeIdCounter, setCanvasNodes]
+    [canvasNodes.length, setCanvasNodes]
   )
 
   const handleZoomIn = useCallback(() => {
@@ -338,7 +348,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
     setShowMinimap((prev) => !prev)
   }, [])
 
-  // Handle node hover - direct DOM manipulation, no React state to avoid re-render loops
+  // Handle node hover - direct DOM manipulation as backup for CSS :hover
   const handleNodeMouseEnter: NodeMouseHandler = useCallback(
     (_event, node) => {
       const nodeEl = document.querySelector(`[data-id="${node.id}"]`)
@@ -475,8 +485,11 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
           onNodeDoubleClick={handleNodeDoubleClick}
           nodeTypes={nodeTypes}
           fitView
+          fitViewOptions={{ padding: 0.2 }}
           proOptions={{ hideAttribution: true }}
           defaultEdgeOptions={{ animated: true }}
+          minZoom={0.1}
+          maxZoom={2}
         >
           <Background
             variant={BackgroundVariant.Dots}
@@ -486,9 +499,13 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
           />
           {showMinimap && (
             <MiniMap
-              nodeColor={themeStyles.minimapNodeColor}
-              maskColor={themeStyles.minimapMask}
+              nodeColor={() => '#6366f1'}
+              nodeStrokeColor={() => '#818cf8'}
+              nodeStrokeWidth={2}
+              maskColor={isDark ? 'rgba(10, 10, 11, 0.85)' : 'rgba(245, 245, 247, 0.85)'}
               style={themeStyles.minimap}
+              zoomable
+              pannable
             />
           )}
         </ReactFlow>

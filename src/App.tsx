@@ -41,9 +41,24 @@ const App: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const appBodyRef = useRef<HTMLDivElement>(null)
 
-  const toggleSidebar = () => setSidebarOpen((prev) => !prev)
-  const toggleChat = () => setChatOpen((prev) => !prev)
-  const toggleCanvas = () => setCanvasOpen((prev) => !prev)
+  // Prevent closing all panels - at least one must remain open
+  const toggleSidebar = () => {
+    const openCount = [sidebarOpen, chatOpen, canvasOpen].filter(Boolean).length
+    if (sidebarOpen && openCount === 1) return // Can't close last panel
+    setSidebarOpen((prev) => !prev)
+  }
+
+  const toggleChat = () => {
+    const openCount = [sidebarOpen, chatOpen, canvasOpen].filter(Boolean).length
+    if (chatOpen && openCount === 1) return
+    setChatOpen((prev) => !prev)
+  }
+
+  const toggleCanvas = () => {
+    const openCount = [sidebarOpen, chatOpen, canvasOpen].filter(Boolean).length
+    if (canvasOpen && openCount === 1) return
+    setCanvasOpen((prev) => !prev)
+  }
   const openSettings = () => setSettingsOpen(true)
   const closeSettings = () => setSettingsOpen(false)
 

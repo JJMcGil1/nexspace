@@ -100,6 +100,15 @@ export interface CanvasEdge {
   targetHandle?: string | null
 }
 
+// Tool call as stored with message
+export interface StoredToolCall {
+  id: string
+  name: string
+  input: unknown
+  result?: string
+  status: 'pending' | 'complete'
+}
+
 // Chat message as stored
 export interface ChatMessage {
   id: string
@@ -107,6 +116,8 @@ export interface ChatMessage {
   content: string
   timestamp: string // ISO string for serialization
   isError?: boolean
+  toolCalls?: StoredToolCall[]
+  thinking?: string
 }
 
 // A NexSpace is a workspace/canvas for AI collaboration

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import './Tooltip.css'
@@ -21,14 +21,13 @@ const Tooltip: React.FC<TooltipProps> = ({
   const [isVisible, setIsVisible] = useState(false)
   const [coords, setCoords] = useState({ x: 0, y: 0 })
   const triggerRef = useRef<HTMLDivElement>(null)
-  const tooltipRef = useRef<HTMLDivElement>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const calculatePosition = () => {
+  const calculatePosition = useCallback(() => {
     if (!triggerRef.current) return { x: 0, y: 0 }
 
     const rect = triggerRef.current.getBoundingClientRect()
-    const tooltipHeight = 28 // Approximate height
+    const tooltipHeight = 28
     const tooltipPadding = 8
 
     let x = 0
@@ -54,26 +53,36 @@ const Tooltip: React.FC<TooltipProps> = ({
     }
 
     return { x, y }
-  }
+  }, [position])
 
-  const showTooltip = () => {
-    // Calculate position immediately
+  const hideTooltip = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+    setIsVisible(false)
+  }, [])
+
+  const showTooltip = useCallback(() => {
     const pos = calculatePosition()
     setCoords(pos)
 
     timeoutRef.current = setTimeout(() => {
       setIsVisible(true)
     }, delay)
-  }
+  }, [calculatePosition, delay])
 
-  const hideTooltip = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-      timeoutRef.current = null
+  // Hide tooltip on any click (inside or outside)
+  useEffect(() => {
+    const handleClick = () => {
+      hideTooltip()
     }
-    setIsVisible(false)
-  }
 
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [hideTooltip])
+
+  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
@@ -84,7 +93,6 @@ const Tooltip: React.FC<TooltipProps> = ({
 
   const tooltipElement = isVisible && (
     <div
-      ref={tooltipRef}
       className={`tooltip tooltip--${position} ${isDark ? 'tooltip--dark' : 'tooltip--light'}`}
       style={{
         left: coords.x,
@@ -102,8 +110,6 @@ const Tooltip: React.FC<TooltipProps> = ({
         className="tooltip-trigger"
         onMouseEnter={showTooltip}
         onMouseLeave={hideTooltip}
-        onFocus={showTooltip}
-        onBlur={hideTooltip}
       >
         {children}
       </div>
