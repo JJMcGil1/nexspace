@@ -47,6 +47,13 @@
     "directories": {
       "output": "release"
     },
+    "extraResources": [
+      {
+        "from": "mcp-servers/nexspace-canvas/dist",
+        "to": "mcp-servers/nexspace-canvas/dist",
+        "filter": ["**/*"]
+      }
+    ],
     "mac": {
       "target": "dmg",
       "icon": "build/icon.icns"

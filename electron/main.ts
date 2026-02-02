@@ -65,8 +65,8 @@ function getMcpServerPath(): string {
     // Development: use source directory
     return path.join(process.cwd(), 'mcp-servers', 'nexspace-canvas', 'dist', 'bundle.js')
   } else {
-    // Production: use app resources
-    return path.join(app.getAppPath(), 'mcp-servers', 'nexspace-canvas', 'dist', 'bundle.js')
+    // Production: use extraResources (outside asar, can be spawned by node)
+    return path.join(process.resourcesPath, 'mcp-servers', 'nexspace-canvas', 'dist', 'bundle.js')
   }
 }
 
