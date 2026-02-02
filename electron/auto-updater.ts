@@ -65,6 +65,14 @@ interface GitHubRelease {
 let mainWindow: BrowserWindow | null = null
 let isDownloading = false
 let downloadedFilePath: string | null = null
+let lastFoundUpdateInfo: UpdateInfo | null = null
+
+/**
+ * Get the last found update info (for use when auto-check finds an update)
+ */
+export function getLastFoundUpdateInfo(): UpdateInfo | null {
+  return lastFoundUpdateInfo
+}
 
 /**
  * Initialize the auto-updater with the main window reference
@@ -305,9 +313,13 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
       updateInfo: updateAvailable ? updateInfo : undefined,
     }
 
-    // Notify renderer if update is available
-    if (updateAvailable && mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update:available', result)
+    // Store and notify renderer if update is available
+    if (updateAvailable) {
+      lastFoundUpdateInfo = updateInfo
+      console.log('[AutoUpdater] Stored update info for download')
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update:available', result)
+      }
     }
 
     return result

@@ -9,7 +9,8 @@ import {
   checkForUpdates,
   downloadUpdate,
   installUpdate,
-  getCurrentVersion
+  getCurrentVersion,
+  getLastFoundUpdateInfo
 } from './auto-updater'
 
 // Handle EPIPE errors gracefully (happens when writing to closed pipes)
@@ -500,10 +501,12 @@ function createWindow() {
 
   // Download update
   ipcMain.handle('updater:download', async () => {
-    if (!currentUpdateInfo) {
+    // Use stored info, or fallback to auto-updater's last found info
+    const updateInfo = currentUpdateInfo || getLastFoundUpdateInfo()
+    if (!updateInfo) {
       return { success: false, error: 'No update available' }
     }
-    return downloadUpdate(currentUpdateInfo)
+    return downloadUpdate(updateInfo)
   })
 
   // Install update
