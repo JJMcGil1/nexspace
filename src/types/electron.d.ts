@@ -89,6 +89,8 @@ export interface CanvasNode {
   type: string
   position: { x: number; y: number }
   data: Record<string, unknown>
+  // Runtime dimensions measured by React Flow (needed for MiniMap)
+  measured?: { width: number; height: number }
 }
 
 // Canvas edge as stored
@@ -120,6 +122,14 @@ export interface ChatMessage {
   thinking?: string
 }
 
+// Chat session - a single conversation thread
+export interface ChatSession {
+  id: string
+  title: string
+  messages: ChatMessage[]
+  createdAt: string
+}
+
 // A NexSpace is a workspace/canvas for AI collaboration
 export interface NexSpace {
   id: string
@@ -131,8 +141,12 @@ export interface NexSpace {
   // Canvas state
   nodes: CanvasNode[]
   edges: CanvasEdge[]
-  // Chat state
-  chatMessages: ChatMessage[]
+  // Chat state - multiple sessions per NexSpace
+  chatSessions?: ChatSession[]
+  activeChatSessionId?: string
+  openSessionIds?: string[] // Which sessions are visible in the tab bar
+  // Legacy support - single chat messages (migrated to sessions)
+  chatMessages?: ChatMessage[]
 }
 
 // Canvas API for MCP tools / agent access

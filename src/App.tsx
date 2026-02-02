@@ -3,7 +3,9 @@ import Titlebar from './components/Titlebar'
 import Sidebar from './components/Sidebar'
 import ChatPanel from './components/ChatPanel'
 import FlowCanvas from './components/FlowCanvas'
+import SharePanel from './components/SharePanel'
 import SettingsModal from './components/SettingsModal'
+import DeleteConfirmationModal from './components/DeleteConfirmationModal'
 import Onboarding from './components/Onboarding'
 import { useUser, NEXSPACE_COLORS } from './contexts/UserContext'
 import { useCanvas } from './contexts/CanvasContext'
@@ -39,28 +41,25 @@ const App: React.FC = () => {
   const [chatWidth, setChatWidth] = useState(DEFAULT_CHAT_WIDTH)
   const [isResizing, setIsResizing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const appBodyRef = useRef<HTMLDivElement>(null)
 
-  // Prevent closing all panels - at least one must remain open
-  const toggleSidebar = () => {
-    const openCount = [sidebarOpen, chatOpen, canvasOpen].filter(Boolean).length
-    if (sidebarOpen && openCount === 1) return // Can't close last panel
-    setSidebarOpen((prev) => !prev)
-  }
+  // Sidebar toggles freely, but Chat/Canvas: at least one must stay open
+  const toggleSidebar = () => setSidebarOpen((prev) => !prev)
 
   const toggleChat = () => {
-    const openCount = [sidebarOpen, chatOpen, canvasOpen].filter(Boolean).length
-    if (chatOpen && openCount === 1) return
+    if (chatOpen && !canvasOpen) return // Can't close Chat if Canvas is closed
     setChatOpen((prev) => !prev)
   }
 
   const toggleCanvas = () => {
-    const openCount = [sidebarOpen, chatOpen, canvasOpen].filter(Boolean).length
-    if (canvasOpen && openCount === 1) return
+    if (canvasOpen && !chatOpen) return // Can't close Canvas if Chat is closed
     setCanvasOpen((prev) => !prev)
   }
   const openSettings = () => setSettingsOpen(true)
   const closeSettings = () => setSettingsOpen(false)
+  const toggleShare = () => setShareOpen((prev) => !prev)
+  const closeShare = () => setShareOpen(false)
 
   const handleNewCanvas = useCallback(async () => {
     const title = `Untitled Space ${Date.now().toString(36).slice(-4)}`
@@ -134,12 +133,13 @@ const App: React.FC = () => {
         canvasOpen={canvasOpen}
         onToggleCanvas={toggleCanvas}
         onNewCanvas={handleNewCanvas}
+        onShare={toggleShare}
       />
       <div className="app__body" ref={appBodyRef}>
         <Sidebar isOpen={sidebarOpen} onOpenSettings={openSettings} />
         <ChatPanel
           isOpen={chatOpen}
-          isFullWidth={!canvasOpen}
+          isFullWidth={!canvasOpen && !shareOpen}
           width={chatWidth}
           isResizing={isResizing}
         />
@@ -149,11 +149,16 @@ const App: React.FC = () => {
             onMouseDown={handleMouseDown}
           />
         )}
-        <FlowCanvas isOpen={canvasOpen} isFullWidth={!chatOpen} />
+        <FlowCanvas isOpen={canvasOpen} isFullWidth={!chatOpen && !shareOpen} />
+        {/* Share Panel - inside layout */}
+        <SharePanel isOpen={shareOpen} onClose={closeShare} />
       </div>
 
       {/* Settings Modal */}
       <SettingsModal isOpen={settingsOpen} onClose={closeSettings} />
+
+      {/* Global Delete Confirmation Modal */}
+      <DeleteConfirmationModal />
     </div>
   )
 }

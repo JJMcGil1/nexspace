@@ -29,13 +29,14 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   align = 'right',
 }) => {
   const menuRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState({ top: 0, left: 0 })
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
   const [isVisible, setIsVisible] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
 
   // Handle open/close with animation
   useEffect(() => {
     if (isOpen) {
+      setPosition(null) // Reset position for recalculation
       setIsVisible(true)
       setIsClosing(false)
     } else if (isVisible) {
@@ -43,6 +44,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       const timer = setTimeout(() => {
         setIsVisible(false)
         setIsClosing(false)
+        setPosition(null)
       }, 150) // Match animation duration
       return () => clearTimeout(timer)
     }
@@ -50,7 +52,15 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
 
   // Calculate position based on anchor element
   useEffect(() => {
-    if (isVisible && anchorEl && menuRef.current) {
+    if (!isVisible || !anchorEl) return
+
+    const calculatePosition = () => {
+      if (!menuRef.current) {
+        // Menu not rendered yet, try again next frame
+        requestAnimationFrame(calculatePosition)
+        return
+      }
+
       const anchorRect = anchorEl.getBoundingClientRect()
       const menuRect = menuRef.current.getBoundingClientRect()
       const viewportHeight = window.innerHeight
@@ -75,7 +85,10 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
 
       setPosition({ top, left })
     }
-  }, [isOpen, anchorEl, align])
+
+    // Wait for next frame to ensure menu is rendered
+    requestAnimationFrame(calculatePosition)
+  }, [isVisible, anchorEl, align])
 
   // Close on click outside
   useEffect(() => {
@@ -117,7 +130,11 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     <div
       ref={menuRef}
       className={`dropdown-menu ${isClosing ? 'dropdown-menu--closing' : ''}`}
-      style={{ top: position.top, left: position.left }}
+      style={{
+        top: position?.top ?? 0,
+        left: position?.left ?? 0,
+        visibility: position ? 'visible' : 'hidden',
+      }}
       role="menu"
     >
       {items.map((item, index) => {

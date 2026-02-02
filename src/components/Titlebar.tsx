@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { LuPlus, LuSearch, LuX, LuFileText } from 'react-icons/lu'
+import { LuPlus, LuSearch, LuX } from 'react-icons/lu'
+import { FaRegShareSquare } from 'react-icons/fa'
+import { IoDocumentText } from 'react-icons/io5'
 import { useTheme } from '../contexts/ThemeContext'
 import { useCanvas } from '../contexts/CanvasContext'
 import LayoutToggleButtons from './LayoutToggleButtons'
@@ -13,6 +15,7 @@ interface TitlebarProps {
   canvasOpen: boolean
   onToggleCanvas: () => void
   onNewCanvas?: () => void
+  onShare?: () => void
 }
 
 /**
@@ -29,6 +32,7 @@ const Titlebar: React.FC<TitlebarProps> = ({
   canvasOpen,
   onToggleCanvas,
   onNewCanvas,
+  onShare,
 }) => {
   const { theme } = useTheme()
   const { currentNexSpace, nodes } = useCanvas()
@@ -90,16 +94,28 @@ const Titlebar: React.FC<TitlebarProps> = ({
     setSelectedIndex(0)
   }, [searchQuery])
 
-  // Click outside to close dropdown
+  // Click outside to close dropdown - only listen when focused
   useEffect(() => {
+    if (!isSearchFocused) return
+
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsSearchFocused(false)
+        setSearchQuery('')
+        searchInputRef.current?.blur()
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+
+    // Use setTimeout to avoid the same click that opened it from closing it
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside)
+    }, 0)
+
+    return () => {
+      clearTimeout(timeoutId)
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isSearchFocused])
 
   // Truncate long nexspace names for placeholder
   const fullNexspaceName = currentNexSpace?.title || 'NexSpace'
@@ -211,7 +227,7 @@ const Titlebar: React.FC<TitlebarProps> = ({
                   onMouseEnter={() => setSelectedIndex(index)}
                 >
                   <div className="titlebar__search-result-left">
-                    <LuFileText className="titlebar__search-result-icon" size={14} />
+                    <IoDocumentText className="titlebar__search-result-icon" size={14} />
                     <span className="titlebar__search-result-title">
                       {String(node.data?.title || node.data?.label || 'Untitled')}
                     </span>
@@ -231,6 +247,16 @@ const Titlebar: React.FC<TitlebarProps> = ({
       </div>
 
       <div className="titlebar__spacer" />
+
+      {/* Share button */}
+      <button
+        className="titlebar__share no-drag"
+        onClick={onShare}
+        aria-label="Share"
+      >
+        <FaRegShareSquare size={14} />
+        <span>Share</span>
+      </button>
 
       {/* New NexSpace button */}
       <button

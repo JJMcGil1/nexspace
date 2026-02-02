@@ -6,26 +6,37 @@ import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { IoMove, IoDocumentText } from 'react-icons/io5'
-import { LuCopy, LuMaximize2, LuEllipsisVertical, LuTrash2 } from 'react-icons/lu'
+import { LuCopy, LuMaximize2, LuTrash2 } from 'react-icons/lu'
 import { useTheme } from '../../contexts/ThemeContext'
+import { useDeleteConfirmation } from '../../contexts/DeleteConfirmationContext'
 import './DocumentNode.css'
 
 interface DocumentNodeData {
   title?: string
   content?: string
+  width?: number
+  height?: number
   onFullscreen?: (nodeId: string) => void
 }
+
+type ResizeDirection = 'left' | 'right' | 'bottom' | 'bottom-left' | 'bottom-right'
 
 const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const { setNodes, getNodes } = useReactFlow()
+  const { showDeleteConfirmation } = useDeleteConfirmation()
   const nodeData = data as unknown as DocumentNodeData
 
   const [title, setTitle] = useState(nodeData.title || 'Untitled')
   const [isEditingTitle, setIsEditingTitle] = useState(false)
-  const [showMoreMenu, setShowMoreMenu] = useState(false)
-  const moreMenuRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(nodeData.width || 400)
+  const [height, setHeight] = useState(nodeData.height || 300)
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStart = useRef({ x: 0, y: 0 })
+  const resizeStartSize = useRef({ width: 0, height: 0 })
+  const resizeStartPos = useRef({ x: 0, y: 0 })
+  const resizeDirection = useRef<ResizeDirection>('right')
 
   // Debounce timer for content saves
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -133,19 +144,6 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     }
   }, [nodeData.title])
 
-  // Close more menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as HTMLElement)) {
-        setShowMoreMenu(false)
-      }
-    }
-    if (showMoreMenu) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showMoreMenu])
-
   // Handle duplicate node
   const handleDuplicate = useCallback(() => {
     const nodes = getNodes()
@@ -167,9 +165,16 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
   // Handle delete node
   const handleDelete = useCallback(() => {
-    setNodes((nds) => nds.filter((node) => node.id !== id))
-    setShowMoreMenu(false)
-  }, [id, setNodes])
+    showDeleteConfirmation({
+      title: 'Delete Document',
+      message: 'Are you sure you want to delete this document? This action cannot be undone.',
+      itemName: title,
+      confirmLabel: 'Delete Document',
+      onConfirm: () => {
+        setNodes((nds) => nds.filter((node) => node.id !== id))
+      },
+    })
+  }, [id, setNodes, showDeleteConfirmation, title])
 
   // Handle fullscreen (dispatch custom event for FlowCanvas to handle)
   const handleFullscreen = useCallback(() => {
@@ -187,10 +192,127 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     editor?.commands.focus()
   }, [editor])
 
+  // Resize handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent, direction: ResizeDirection) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    // Get current node position
+    const nodes = getNodes()
+    const currentNode = nodes.find((n) => n.id === id)
+    if (!currentNode) return
+
+    setIsResizing(true)
+    resizeStart.current = { x: e.clientX, y: e.clientY }
+    resizeStartSize.current = { width, height }
+    resizeStartPos.current = { x: currentNode.position.x, y: currentNode.position.y }
+    resizeDirection.current = direction
+  }, [width, height, getNodes, id])
+
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    if (!isResizing) return
+
+    const deltaX = e.clientX - resizeStart.current.x
+    const deltaY = e.clientY - resizeStart.current.y
+    const dir = resizeDirection.current
+
+    // Calculate new width based on direction
+    if (dir === 'right' || dir === 'bottom-right') {
+      const newWidth = Math.max(280, Math.min(800, resizeStartSize.current.width + deltaX))
+      setWidth(newWidth)
+    } else if (dir === 'left' || dir === 'bottom-left') {
+      // Calculate new width and position for left-side resize
+      const potentialWidth = resizeStartSize.current.width - deltaX
+      const newWidth = Math.max(280, Math.min(800, potentialWidth))
+
+      // Calculate how much the width actually changed (accounting for clamping)
+      const actualWidthDelta = resizeStartSize.current.width - newWidth
+
+      // Move the node position to keep right edge anchored
+      const newX = resizeStartPos.current.x + actualWidthDelta
+
+      setWidth(newWidth)
+      setNodes((nodes) =>
+        nodes.map((node) =>
+          node.id === id
+            ? { ...node, position: { ...node.position, x: newX } }
+            : node
+        )
+      )
+    }
+
+    // Calculate new height based on direction
+    if (dir === 'bottom' || dir === 'bottom-left' || dir === 'bottom-right') {
+      const newHeight = Math.max(150, Math.min(800, resizeStartSize.current.height + deltaY))
+      setHeight(newHeight)
+    }
+  }, [isResizing, id, setNodes])
+
+  const handleResizeEnd = useCallback(() => {
+    if (!isResizing) return
+    setIsResizing(false)
+
+    // Save dimensions to node data
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? { ...node, data: { ...node.data, width, height } }
+          : node
+      )
+    )
+  }, [isResizing, id, setNodes, width, height])
+
+  // Attach global mouse events for resize
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove)
+      window.addEventListener('mouseup', handleResizeEnd)
+      return () => {
+        window.removeEventListener('mousemove', handleResizeMove)
+        window.removeEventListener('mouseup', handleResizeEnd)
+      }
+    }
+  }, [isResizing, handleResizeMove, handleResizeEnd])
+
+  // Sync dimensions from props
+  useEffect(() => {
+    if (nodeData.width !== undefined && nodeData.width !== width) {
+      setWidth(nodeData.width)
+    }
+  }, [nodeData.width])
+
+  useEffect(() => {
+    if (nodeData.height !== undefined && nodeData.height !== height) {
+      setHeight(nodeData.height)
+    }
+  }, [nodeData.height])
+
   return (
     <div
-      className={`document-node-wrapper ${isDark ? 'document-node-wrapper--dark' : 'document-node-wrapper--light'}`}
+      className={`document-node-wrapper ${isDark ? 'document-node-wrapper--dark' : 'document-node-wrapper--light'} ${isResizing ? 'document-node-wrapper--resizing' : ''}`}
+      style={{ width }}
     >
+      {/* Resize handles */}
+      <div
+        className="document-node__resize-handle document-node__resize-handle--left nodrag"
+        onMouseDown={(e) => handleResizeStart(e, 'left')}
+      />
+      <div
+        className="document-node__resize-handle document-node__resize-handle--right nodrag"
+        onMouseDown={(e) => handleResizeStart(e, 'right')}
+      />
+      <div
+        className="document-node__resize-handle document-node__resize-handle--bottom nodrag"
+        onMouseDown={(e) => handleResizeStart(e, 'bottom')}
+      />
+      <div
+        className="document-node__resize-handle document-node__resize-handle--bottom-left nodrag"
+        onMouseDown={(e) => handleResizeStart(e, 'bottom-left')}
+      />
+      <div
+        className="document-node__resize-handle document-node__resize-handle--bottom-right nodrag"
+        onMouseDown={(e) => handleResizeStart(e, 'bottom-right')}
+      />
       {/* Header row: title on left, hover nav on right */}
       <div className="document-node__header-row">
         {/* External title - positioned above the card */}
@@ -238,30 +360,6 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
             <LuMaximize2 size={16} />
           </button>
 
-          <div className="document-node__more-wrapper" ref={moreMenuRef}>
-            <button
-              type="button"
-              className={`document-node__hover-btn ${showMoreMenu ? 'active' : ''}`}
-              onClick={() => setShowMoreMenu(!showMoreMenu)}
-              title="More options"
-            >
-              <LuEllipsisVertical size={16} />
-            </button>
-
-            {showMoreMenu && (
-              <div className="document-node__more-menu">
-                <button
-                  type="button"
-                  className="document-node__more-menu-item document-node__more-menu-item--danger"
-                  onClick={handleDelete}
-                >
-                  <LuTrash2 size={14} />
-                  <span>Delete</span>
-                </button>
-              </div>
-            )}
-          </div>
-
           <div className="document-node__hover-nav-divider" />
 
           <div className="document-node__hover-btn document-node__drag-handle" title="Move">
@@ -278,6 +376,7 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         {/* Main card - sits on top of the base */}
         <div
           className={`document-node ${isDark ? 'document-node--dark' : 'document-node--light'} ${selected ? 'document-node--selected' : ''}`}
+          style={{ height }}
         >
           {/* TipTap Editor */}
           <div className="document-node__content nodrag nowheel">
@@ -287,8 +386,18 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
         {/* Node type footer - visible below the card */}
         <div className="document-node__type-footer">
-          <IoDocumentText size={14} className="document-node__type-icon" />
+          <div className="document-node__type-badge">
+            <IoDocumentText size={16} className="document-node__type-icon" />
+          </div>
           <span className="document-node__type-label">Document</span>
+          <button
+            type="button"
+            className="document-node__footer-delete nodrag"
+            onClick={handleDelete}
+            title="Delete"
+          >
+            <LuTrash2 size={14} />
+          </button>
         </div>
       </div>
     </div>

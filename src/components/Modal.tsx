@@ -7,6 +7,7 @@ interface ModalProps {
   isOpen: boolean
   onClose: () => void
   title?: string
+  icon?: React.ReactNode
   children: React.ReactNode
   width?: number
 }
@@ -15,6 +16,7 @@ const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,
+  icon,
   children,
   width = 440,
 }) => {
@@ -48,7 +50,10 @@ const Modal: React.FC<ModalProps> = ({
       >
         {title && (
           <div className="modal__header">
-            <h2 id="modal-title" className="modal__title">{title}</h2>
+            <div className="modal__title-row">
+              {icon && <span className="modal__icon">{icon}</span>}
+              <h2 id="modal-title" className="modal__title">{title}</h2>
+            </div>
             <button
               className="modal__close"
               onClick={onClose}

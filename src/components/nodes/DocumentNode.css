@@ -4,14 +4,66 @@
 
 /* ── Wrapper for positioning title outside ─────────────── */
 .document-node-wrapper {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 4px;
   border-radius: 18px;
   transition: background-color 0.15s ease;
-  /* Ensure minimum dimensions for minimap visibility */
-  min-width: 320px;
+  /* Width is now controlled via inline style */
+  min-width: 280px;
+  max-width: 800px;
+}
+
+.document-node-wrapper--resizing {
+  user-select: none;
+}
+
+/* ── Resize Handles (invisible, cursor only) ────────────── */
+.document-node__resize-handle {
+  position: absolute;
+  z-index: 10;
+}
+
+.document-node__resize-handle--left {
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.document-node__resize-handle--right {
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.document-node__resize-handle--bottom {
+  bottom: -4px;
+  left: 16px;
+  right: 16px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.document-node__resize-handle--bottom-left {
+  bottom: -4px;
+  left: -4px;
+  width: 20px;
+  height: 20px;
+  cursor: nesw-resize;
+}
+
+.document-node__resize-handle--bottom-right {
+  bottom: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
 }
 
 /* ── Header Row (title + hover nav) ───────────────────── */
@@ -220,42 +272,60 @@
 }
 
 .document-node {
-  min-width: 320px;
-  max-width: 480px;
+  /* Height controlled via inline style */
+  min-height: 150px;
+  max-height: 800px;
   border-radius: 12px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   font-family: var(--font-sans);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  /* Scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a3f transparent;
+}
+
+.document-node::-webkit-scrollbar {
+  width: 6px;
+}
+
+.document-node::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.document-node::-webkit-scrollbar-thumb {
+  background: #3a3a3f;
+  border-radius: 3px;
+}
+
+.document-node--light {
+  scrollbar-color: #d1d5db transparent;
+}
+
+.document-node--light::-webkit-scrollbar-thumb {
+  background: #d1d5db;
 }
 
 /* ── Dark theme ────────────────────────────────────────── */
 .document-node--dark {
   background: #1a1a1e;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #2a2a2f;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-/* Hover via CSS :hover or direct DOM class */
-.document-node-wrapper:hover .document-node--dark,
-.react-flow__node:hover .document-node--dark,
-.react-flow__node.selected .document-node--dark,
-.rf-node-hovered .document-node--dark {
-  border-color: rgba(99, 102, 241, 0.6);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.15);
-}
-
+/* Hover - only the outer base changes, inner card stays the same */
 .document-node-wrapper:hover .document-node__base--dark,
 .react-flow__node:hover .document-node__base--dark,
 .react-flow__node.selected .document-node__base--dark,
 .rf-node-hovered .document-node__base--dark {
-  border-color: rgba(99, 102, 241, 0.4);
-  background: rgba(99, 102, 241, 0.06);
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.1);
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3);
 }
 
 .document-node--dark.document-node--selected {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3), 0 4px 20px rgba(0, 0, 0, 0.3);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px #6366f14d, 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 /* ── Light theme ───────────────────────────────────────── */
@@ -265,22 +335,14 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-/* Hover via CSS :hover or direct DOM class */
-.document-node-wrapper:hover .document-node--light,
-.react-flow__node:hover .document-node--light,
-.react-flow__node.selected .document-node--light,
-.rf-node-hovered .document-node--light {
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(99, 102, 241, 0.1);
-}
-
+/* Hover - only the outer base changes, inner card stays the same */
 .document-node-wrapper:hover .document-node__base--light,
 .react-flow__node:hover .document-node__base--light,
 .react-flow__node.selected .document-node__base--light,
 .rf-node-hovered .document-node__base--light {
-  border-color: rgba(99, 102, 241, 0.3);
-  background: rgba(99, 102, 241, 0.04);
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08);
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.06);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2);
 }
 
 .document-node--light.document-node--selected {
@@ -299,19 +361,19 @@
 }
 
 .document-node__base--dark {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #131316;
+  border: 1px solid #1e1e22;
 }
 
 .document-node__base--light {
-  background: rgba(0, 0, 0, 0.015);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
 }
 
 /* Card inside base needs adjusted border-radius */
 .document-node__base .document-node {
   border-radius: 12px;
-  margin: 2px;
+  margin: 10px;
   margin-bottom: 0;
 }
 
@@ -348,21 +410,6 @@
 .document-node__content {
   padding: 16px;
   min-height: 240px;
-  max-height: 500px;
-  overflow-y: auto;
-}
-
-.document-node__content::-webkit-scrollbar {
-  width: 5px;
-}
-
-.document-node__content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-.document-node--light .document-node__content::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
 }
 
 /* ── TipTap Editor Styles ──────────────────────────────── */
@@ -560,21 +607,74 @@
 .document-node__type-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 10px;
+  padding: 14px 18px;
 }
 
-.document-node__type-icon {
-  color: var(--color-text-muted);
-  opacity: 0.6;
+.document-node__type-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
   flex-shrink: 0;
 }
 
+.document-node__type-icon {
+  color: #818cf8;
+  flex-shrink: 0;
+}
+
+.document-node-wrapper--light .document-node__type-badge {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.15);
+}
+
+.document-node-wrapper--light .document-node__type-icon {
+  color: #6366f1;
+}
+
 .document-node__type-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--color-text-muted);
   letter-spacing: 0.01em;
-  opacity: 0.8;
+  flex: 1;
+}
+
+/* Footer delete button */
+.document-node__footer-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.document-node__footer-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.document-node-wrapper--light .document-node__footer-delete {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.document-node-wrapper--light .document-node__footer-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
 }

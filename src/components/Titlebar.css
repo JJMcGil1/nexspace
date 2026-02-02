@@ -57,6 +57,7 @@
 .titlebar__search {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   height: 32px;
   padding: 0 16px;
@@ -73,6 +74,7 @@
 }
 
 .titlebar__search--focused {
+  justify-content: flex-start;
   background: rgba(255, 255, 255, 0.1);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
 }
@@ -94,14 +96,13 @@
   font-size: 13px;
   font-family: var(--font-sans);
   color: rgba(255, 255, 255, 0.85);
-  flex: 1;
-  width: 100%;
-  text-align: center;
-  transition: text-align 0.15s ease-out;
+  width: auto;
+  min-width: 0;
 }
 
 .titlebar__search--focused .titlebar__search-input {
-  text-align: left;
+  flex: 1;
+  width: 100%;
 }
 
 .titlebar__search-input::placeholder {
@@ -274,6 +275,51 @@
   color: rgba(0, 0, 0, 0.45);
 }
 
+/* ── Share button (secondary style) ─────────────────────── */
+.titlebar__share {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.titlebar__share:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.titlebar__share:active {
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(0.98);
+}
+
+[data-theme="light"] .titlebar__share {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .titlebar__share:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .titlebar__share:active {
+  background: rgba(0, 0, 0, 0.06);
+}
+
 /* ── New Canvas button ─────────────────────────────────── */
 .titlebar__new-canvas {
   display: flex;
@@ -302,6 +348,32 @@
 .titlebar__new-canvas:active {
   opacity: 0.85;
   transform: scale(0.98);
+}
+
+/* ── Settings button ────────────────────────────────────── */
+.titlebar__settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.titlebar__settings:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.titlebar__settings:active {
+  transform: scale(0.95);
 }
 
 /* ── Window controls (Windows / Linux) ──────────────────── */

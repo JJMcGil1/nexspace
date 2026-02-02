@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { FaArrowUp, FaStop } from 'react-icons/fa'
-import { LuChevronDown, LuChevronRight, LuCheck, LuLoader, LuCircleCheck, LuBrain, LuPaperclip, LuX } from 'react-icons/lu'
+import { RiChatAiFill } from 'react-icons/ri'
+import { LuChevronDown, LuChevronRight, LuCheck, LuLoader, LuCircleCheck, LuBrain, LuPaperclip, LuX, LuPlus, LuMessageSquare, LuHistory } from 'react-icons/lu'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAI, AVAILABLE_MODELS, ClaudeModel, ToolCall } from '../contexts/AIContext'
 import { useCanvas } from '../contexts/CanvasContext'
-import type { ChatMessage as StoredChatMessage } from '../types/electron'
+import { useUser } from '../contexts/UserContext'
+import type { ChatMessage as StoredChatMessage, ChatSession } from '../types/electron'
 import NexoIconDark from '../assets/nexspace-icon-dark.svg'
 import NexoIconLight from '../assets/nexspace-icon-light.svg'
+import MarkdownRenderer from './MarkdownRenderer'
 import './ChatPanel.css'
 
 // Collapsible tool call item
@@ -75,10 +78,34 @@ interface ChatPanelProps {
   isResizing: boolean
 }
 
+// Get user initials for avatar fallback
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(part => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
 const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isResizing }) => {
   const { theme } = useTheme()
   const { sendMessage, isStreaming, abortStream, isConfigured, model, setModel } = useAI()
-  const { chatMessages, addChatMessage, updateChatMessage, currentNexSpaceId } = useCanvas()
+  const {
+    chatMessages,
+    addChatMessage,
+    updateChatMessage,
+    currentNexSpaceId,
+    chatSessions,
+    activeChatSessionId,
+    openSessionIds,
+    createChatSession,
+    switchChatSession,
+    closeSession,
+    reopenSession,
+    renameChatSession,
+  } = useCanvas()
+  const { user } = useUser()
 
   // Local state for streaming message (not persisted until complete)
   const [streamingMessage, setStreamingMessage] = useState<Message | null>(null)
@@ -86,8 +113,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
   const [streamingThinking, setStreamingThinking] = useState<string>('')
   const [input, setInput] = useState('')
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [attachedImages, setAttachedImages] = useState<{ id: string; file: File; preview: string }[]>([])
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
+  const [editingValue, setEditingValue] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const editInputRef = useRef<HTMLInputElement>(null)
+  const historyRef = useRef<HTMLDivElement>(null)
 
   // Clear any streaming state when switching nexspaces
   // This prevents messages from "bleeding" between nexspaces
@@ -97,6 +129,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
     setStreamingToolCalls([])
     setStreamingThinking('')
   }, [currentNexSpaceId])
+
+  // Close history dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (historyRef.current && !historyRef.current.contains(e.target as Node)) {
+        setIsHistoryOpen(false)
+      }
+    }
+    if (isHistoryOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isHistoryOpen])
 
   // Convert stored messages to UI messages
   // Use currentNexSpaceId in dependency to ensure re-render on nexspace switch
@@ -400,6 +445,40 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
     }
   }
 
+  // Handle starting to edit a session name
+  const handleStartRename = (session: ChatSession) => {
+    setEditingSessionId(session.id)
+    setEditingValue(session.title)
+    // Focus the input after render
+    setTimeout(() => editInputRef.current?.focus(), 0)
+  }
+
+  // Handle saving the renamed session
+  const handleSaveRename = () => {
+    if (editingSessionId && editingValue.trim()) {
+      renameChatSession(editingSessionId, editingValue.trim())
+    }
+    setEditingSessionId(null)
+    setEditingValue('')
+  }
+
+  // Handle canceling the rename
+  const handleCancelRename = () => {
+    setEditingSessionId(null)
+    setEditingValue('')
+  }
+
+  // Handle key events in the rename input
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSaveRename()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      handleCancelRename()
+    }
+  }
+
   const panelClasses = [
     'chat-panel',
     !isOpen && 'chat-panel--closed',
@@ -411,6 +490,99 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
 
   return (
     <div className={panelClasses} style={style}>
+      {/* Chat Session Tabs */}
+      <div className="chat-tabs">
+        <div className="chat-tabs__list">
+          {chatSessions
+            .filter(session => openSessionIds.includes(session.id))
+            .map((session) => (
+            <button
+              key={session.id}
+              className={`chat-tabs__tab ${session.id === activeChatSessionId ? 'chat-tabs__tab--active' : ''}`}
+              onClick={() => switchChatSession(session.id)}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                handleStartRename(session)
+              }}
+              title={editingSessionId === session.id ? undefined : session.title}
+            >
+              <LuMessageSquare size={14} className="chat-tabs__tab-icon" />
+              {editingSessionId === session.id ? (
+                <input
+                  ref={editInputRef}
+                  type="text"
+                  className="chat-tabs__tab-input"
+                  value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  onKeyDown={handleRenameKeyDown}
+                  onBlur={handleSaveRename}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span className="chat-tabs__tab-title">{session.title}</span>
+              )}
+              {openSessionIds.length > 1 && editingSessionId !== session.id && (
+                <button
+                  className="chat-tabs__tab-close"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    closeSession(session.id)
+                  }}
+                  aria-label="Close tab"
+                >
+                  <LuX size={12} />
+                </button>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="chat-tabs__actions">
+          {/* History button - show all sessions */}
+          <div className="chat-tabs__history" ref={historyRef}>
+            <button
+              className={`chat-tabs__history-btn ${isHistoryOpen ? 'chat-tabs__history-btn--open' : ''}`}
+              onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+              aria-label="Chat history"
+              title="Chat history"
+            >
+              <LuHistory size={16} />
+            </button>
+            {isHistoryOpen && (
+              <div className="chat-tabs__history-menu">
+                <div className="chat-tabs__history-header">All Chats</div>
+                {chatSessions.map((session) => (
+                  <button
+                    key={session.id}
+                    className={`chat-tabs__history-item ${openSessionIds.includes(session.id) ? 'chat-tabs__history-item--open' : ''}`}
+                    onClick={() => {
+                      reopenSession(session.id)
+                      setIsHistoryOpen(false)
+                    }}
+                  >
+                    <LuMessageSquare size={14} />
+                    <span className="chat-tabs__history-title">{session.title}</span>
+                    {openSessionIds.includes(session.id) && (
+                      <span className="chat-tabs__history-badge">Open</span>
+                    )}
+                  </button>
+                ))}
+                {chatSessions.length === 0 && (
+                  <div className="chat-tabs__history-empty">No chat sessions</div>
+                )}
+              </div>
+            )}
+          </div>
+          <button
+            className="chat-tabs__new"
+            onClick={() => createChatSession()}
+            aria-label="New chat"
+            title="New chat"
+          >
+            <LuPlus size={16} />
+          </button>
+        </div>
+      </div>
+
       {/* Messages */}
       <div className="chat-panel__messages">
         {/* Empty state when no messages */}
@@ -455,7 +627,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
           >
             <div className="chat-msg__avatar">
               {msg.role === 'user' ? (
-                'U'
+                user?.avatarImage ? (
+                  <img src={user.avatarImage} alt={user.name} className="chat-msg__avatar-img" />
+                ) : (
+                  <span
+                    className="chat-msg__avatar-initials"
+                    style={{ backgroundColor: user?.avatarColor || '#6366f1' }}
+                  >
+                    {user ? getInitials(user.name) : 'U'}
+                  </span>
+                )
               ) : (
                 <img src={NexoIcon} alt="Nexo" className="chat-msg__avatar-icon" />
               )}
@@ -463,14 +644,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
             <div className="chat-msg__body">
               <div className="chat-msg__meta">
                 <span className="chat-msg__role">
-                  {msg.role === 'user' ? 'You' : ASSISTANT_NAME}
+                  {msg.role === 'user' ? 'You' : (
+                    <>
+                      {ASSISTANT_NAME}
+                      <RiChatAiFill className="chat-msg__ai-badge" />
+                    </>
+                  )}
                 </span>
-                <span className="chat-msg__time">
-                  {msg.timestamp.toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
+                {msg.role === 'user' && (
+                  <span className="chat-msg__time">
+                    {msg.timestamp.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                )}
               </div>
 
               {/* Thinking indicator (for streaming message) */}
@@ -515,9 +703,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
               })()}
 
               <div className="chat-msg__content">
-                {msg.content || (msg.isStreaming && !streamingThinking && streamingToolCalls.length === 0 && (
-                  <span className="chat-msg__typing">Thinking...</span>
-                ))}
+                {msg.content ? (
+                  <MarkdownRenderer content={msg.content} />
+                ) : (
+                  msg.isStreaming && !streamingThinking && streamingToolCalls.length === 0 && (
+                    <span className="chat-msg__typing">Thinking...</span>
+                  )
+                )}
               </div>
             </div>
           </div>

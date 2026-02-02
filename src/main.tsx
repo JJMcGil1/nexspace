@@ -4,6 +4,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { AIProvider } from './contexts/AIContext'
 import { UserProvider } from './contexts/UserContext'
 import { CanvasProvider } from './contexts/CanvasContext'
+import { DeleteConfirmationProvider } from './contexts/DeleteConfirmationContext'
 import App from './App'
 import './styles/global.css'
 
@@ -13,7 +14,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <UserProvider>
         <CanvasProvider>
           <AIProvider>
-            <App />
+            <DeleteConfirmationProvider>
+              <App />
+            </DeleteConfirmationProvider>
           </AIProvider>
         </CanvasProvider>
       </UserProvider>

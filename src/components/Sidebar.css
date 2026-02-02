@@ -221,13 +221,29 @@
   color: var(--color-text-primary);
 }
 
-.sidebar__nexspace-time {
-  display: block;
+.sidebar__nexspace-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 11px;
   font-weight: 400;
   color: var(--color-text-muted);
   letter-spacing: 0;
   line-height: 1.2;
+}
+
+.sidebar__nexspace-time {
+  color: inherit;
+}
+
+.sidebar__nexspace-nodes {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.sidebar__nexspace-nodes::before {
+  content: '·';
+  margin-right: 8px;
 }
 
 /* ── NexSpace rename input ────────────────────────────────── */
@@ -361,8 +377,21 @@
 }
 
 /* ── Profile section ───────────────────────────────────── */
-.sidebar__profile {
-  margin-top: 2px;
+.sidebar__profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+}
+
+.sidebar__profile-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
 }
 
 .sidebar__profile-info {
@@ -388,6 +417,26 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sidebar__settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar__settings-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
 }
 
 /* ── Empty state ─────────────────────────────────────────── */

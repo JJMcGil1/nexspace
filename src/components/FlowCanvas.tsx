@@ -252,6 +252,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
       type: n.type,
       position: n.position,
       data: n.data,
+      // Pass through measured dimensions for MiniMap rendering
+      measured: n.measured,
     }))
   }, [canvasNodes])
 
@@ -262,23 +264,45 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
   })), [canvasEdges])
 
   // Handle node changes from React Flow
-  // IMPORTANT: Filter out 'dimensions' changes to prevent infinite re-renders
-  // React Flow constantly measures nodes and triggers dimension changes
+  // We need to let dimension changes through for the MiniMap to work,
+  // but we only persist position/structure changes to storage
   const onNodesChange: OnNodesChange = useCallback((changes) => {
-    // Filter to only meaningful changes (position, remove, add, select)
-    const meaningfulChanges = changes.filter(c => c.type !== 'dimensions')
-    if (meaningfulChanges.length === 0) return
+    // Separate dimension changes from other changes
+    const dimensionChanges = changes.filter(c => c.type === 'dimensions')
+    const otherChanges = changes.filter(c => c.type !== 'dimensions')
 
-    setCanvasNodes(prev => {
-      const rfNodes = prev.map(n => ({ ...n, data: n.data })) as Node[]
-      const updated = applyNodeChanges(meaningfulChanges, rfNodes)
-      return updated.map(n => ({
-        id: n.id,
-        type: n.type || 'default',
-        position: n.position,
-        data: n.data as Record<string, unknown>,
-      }))
-    })
+    // Always apply dimension changes to keep React Flow's internal state updated
+    // (required for MiniMap to render nodes correctly)
+    if (dimensionChanges.length > 0) {
+      setCanvasNodes(prev => {
+        const rfNodes = prev.map(n => ({ ...n, data: n.data })) as Node[]
+        const updated = applyNodeChanges(dimensionChanges, rfNodes)
+        // Return same structure - dimensions are stored internally by React Flow
+        return updated.map(n => ({
+          id: n.id,
+          type: n.type || 'default',
+          position: n.position,
+          data: n.data as Record<string, unknown>,
+          // Preserve measured dimensions for minimap
+          measured: (n as Node).measured,
+        })) as CanvasNode[]
+      })
+    }
+
+    // Apply other meaningful changes (position, remove, add, select)
+    if (otherChanges.length > 0) {
+      setCanvasNodes(prev => {
+        const rfNodes = prev.map(n => ({ ...n, data: n.data })) as Node[]
+        const updated = applyNodeChanges(otherChanges, rfNodes)
+        return updated.map(n => ({
+          id: n.id,
+          type: n.type || 'default',
+          position: n.position,
+          data: n.data as Record<string, unknown>,
+          measured: (n as Node).measured,
+        })) as CanvasNode[]
+      })
+    }
   }, [setCanvasNodes])
 
   // Handle edge changes from React Flow
@@ -499,9 +523,9 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
           />
           {showMinimap && (
             <MiniMap
-              nodeColor={() => '#6366f1'}
-              nodeStrokeColor={() => '#818cf8'}
-              nodeStrokeWidth={2}
+              nodeColor={() => isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'}
+              nodeStrokeColor={() => isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.12)'}
+              nodeStrokeWidth={1}
               maskColor={isDark ? 'rgba(10, 10, 11, 0.85)' : 'rgba(245, 245, 247, 0.85)'}
               style={themeStyles.minimap}
               zoomable

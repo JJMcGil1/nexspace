@@ -3,6 +3,7 @@ import { LuSettings, LuSearch, LuPlus, LuPencil, LuCopy, LuTrash2, LuImage } fro
 import { HiOutlineDotsHorizontal } from 'react-icons/hi'
 import { useUser, NEXSPACE_COLORS } from '../contexts/UserContext'
 import { useCanvas } from '../contexts/CanvasContext'
+import { useDeleteConfirmation } from '../contexts/DeleteConfirmationContext'
 import DropdownMenu, { DropdownMenuItem } from './DropdownMenu'
 import './Sidebar.css'
 
@@ -34,6 +35,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
   const { user, nexspaces, addNexSpace, updateNexSpace, deleteNexSpace } = useUser()
   const { currentNexSpaceId, loadNexSpace } = useCanvas()
+  const { showDeleteConfirmation } = useDeleteConfirmation()
   // Use currentNexSpaceId directly from context - no redundant local state
   const [searchQuery, setSearchQuery] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -146,14 +148,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
         await addNexSpace(`${nexspace.title} (copy)`, nexspace.coverImage, nexspace.coverColor)
         break
       case 'delete':
-        await deleteNexSpace(menuNexSpaceId)
-        // If deleting current nexspace, load another one
-        if (currentNexSpaceId === menuNexSpaceId) {
-          const remaining = nexspaces.filter(ns => ns.id !== menuNexSpaceId)
-          if (remaining.length > 0) {
-            await loadNexSpace(remaining[0].id)
-          }
-        }
+        showDeleteConfirmation({
+          title: 'Delete NexSpace',
+          message: 'Are you sure you want to delete this NexSpace? All documents and data will be permanently removed.',
+          itemName: nexspace.title,
+          confirmLabel: 'Delete NexSpace',
+          onConfirm: async () => {
+            await deleteNexSpace(menuNexSpaceId)
+            // If deleting current nexspace, load another one
+            if (currentNexSpaceId === menuNexSpaceId) {
+              const remaining = nexspaces.filter(ns => ns.id !== menuNexSpaceId)
+              if (remaining.length > 0) {
+                await loadNexSpace(remaining[0].id)
+              }
+            }
+          },
+        })
         break
     }
   }
@@ -277,7 +287,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
                   ) : (
                     <>
                       <span className="sidebar__nexspace-title">{nexspace.title}</span>
-                      <span className="sidebar__nexspace-time">{formatRelativeTime(nexspace.lastEdited)}</span>
+                      <span className="sidebar__nexspace-meta">
+                        <span className="sidebar__nexspace-time">{formatRelativeTime(nexspace.lastEdited)}</span>
+                        <span className="sidebar__nexspace-nodes">{nexspace.nodes?.length || 0} nodes</span>
+                      </span>
                     </>
                   )}
                 </div>
@@ -298,38 +311,41 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
         </div>
       </div>
 
-      {/* Bottom section — settings, profile */}
+      {/* Bottom section — profile with settings */}
       <div className="sidebar__footer">
-        {/* Settings */}
-        <button className="sidebar__item" aria-label="Settings" onClick={onOpenSettings}>
-          <LuSettings size={18} className="sidebar__icon" />
-          <span className="sidebar__label">Settings</span>
-        </button>
-
-        {/* User Profile */}
+        {/* User Profile with Settings */}
         {user && (
-          <button className="sidebar__item sidebar__profile" aria-label="Profile">
-            {user.avatarImage ? (
-              <img
-                src={user.avatarImage}
-                alt={user.name}
-                className="sidebar__avatar sidebar__avatar--image"
-              />
-            ) : (
-              <div
-                className="sidebar__avatar"
-                style={{ backgroundColor: user.avatarColor }}
-              >
-                {getInitials(user.name)}
-              </div>
-            )}
-            <div className="sidebar__profile-info">
-              <span className="sidebar__profile-name">{user.name}</span>
-              {user.email && (
-                <span className="sidebar__profile-email">{user.email}</span>
+          <div className="sidebar__profile-row">
+            <div className="sidebar__profile-left">
+              {user.avatarImage ? (
+                <img
+                  src={user.avatarImage}
+                  alt={user.name}
+                  className="sidebar__avatar sidebar__avatar--image"
+                />
+              ) : (
+                <div
+                  className="sidebar__avatar"
+                  style={{ backgroundColor: user.avatarColor }}
+                >
+                  {getInitials(user.name)}
+                </div>
               )}
+              <div className="sidebar__profile-info">
+                <span className="sidebar__profile-name">{user.name}</span>
+                {user.email && (
+                  <span className="sidebar__profile-email">{user.email}</span>
+                )}
+              </div>
             </div>
-          </button>
+            <button
+              className="sidebar__settings-btn"
+              aria-label="Settings"
+              onClick={onOpenSettings}
+            >
+              <LuSettings size={16} />
+            </button>
+          </div>
         )}
       </div>
 

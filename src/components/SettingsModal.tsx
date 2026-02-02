@@ -1,9 +1,12 @@
-import React, { useState } from 'react'
-import { LuSun, LuMoon, LuSparkles, LuCheck, LuInfo, LuRefreshCw, LuTriangleAlert, LuTerminal } from 'react-icons/lu'
+import React, { useState, useRef } from 'react'
+import { LuSun, LuMoon, LuCheck, LuInfo, LuRefreshCw, LuTriangleAlert, LuTerminal, LuUser, LuPlug, LuPalette, LuCamera, LuSettings } from 'react-icons/lu'
 import { useTheme } from '../contexts/ThemeContext'
-import { useAI, AVAILABLE_MODELS, ClaudeModel } from '../contexts/AIContext'
+import { useAI } from '../contexts/AIContext'
+import { useUser, NEXSPACE_COLORS } from '../contexts/UserContext'
 import Modal from './Modal'
 import './SettingsModal.css'
+
+type SettingsTab = 'account' | 'connections' | 'preferences'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -12,10 +15,26 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { theme, toggleTheme } = useTheme()
-  const { authStatus, checkAuth, refreshAuth, model, setModel, isConfigured } = useAI()
+  const { authStatus, checkAuth } = useAI()
+  const { user, setUser } = useUser()
 
+  const [activeTab, setActiveTab] = useState<SettingsTab>('account')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [loginMessage, setLoginMessage] = useState<string | null>(null)
+
+  // Account editing state
+  const [editName, setEditName] = useState(user?.name || '')
+  const [editEmail, setEditEmail] = useState(user?.email || '')
+  const [isSaving, setIsSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Sync edit state when user changes
+  React.useEffect(() => {
+    if (user) {
+      setEditName(user.name)
+      setEditEmail(user.email)
+    }
+  }, [user])
 
   const handleRefreshAuth = async () => {
     setIsRefreshing(true)
@@ -28,7 +47,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     setIsRefreshing(true)
     setLoginMessage(null)
 
-    // This will open Terminal and run `claude login`
     const result = await window.electronAPI.claude.login()
 
     if (result.success && result.message) {
@@ -40,46 +58,85 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     setIsRefreshing(false)
   }
 
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setModel(e.target.value as ClaudeModel)
+  const handleSaveProfile = async () => {
+    if (!user || !editName.trim()) return
+
+    setIsSaving(true)
+    await setUser({
+      ...user,
+      name: editName.trim(),
+      email: editEmail.trim(),
+    })
+    setIsSaving(false)
   }
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    // Convert to base64
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string
+      await setUser({
+        ...user,
+        avatarImage: base64,
+      })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleColorChange = async (color: string) => {
+    if (!user) return
+    await setUser({
+      ...user,
+      avatarColor: color,
+      avatarImage: undefined, // Clear image when selecting color
+    })
+  }
+
+  const hasChanges = user && (editName !== user.name || editEmail !== user.email)
 
   const getAuthStatusDisplay = () => {
     switch (authStatus) {
       case 'checking':
         return {
           icon: <LuRefreshCw size={14} className="settings__status-icon--spin" />,
-          text: 'Checking authentication...',
-          className: ''
+          text: 'Checking...',
+          className: 'settings__auth-badge--checking'
         }
       case 'authenticated':
         return {
           icon: <LuCheck size={14} />,
-          text: 'Authenticated with Claude',
-          className: 'settings__status--success'
+          text: 'Connected',
+          className: 'settings__auth-badge--connected'
         }
       case 'token_expired':
         return {
           icon: <LuTriangleAlert size={14} />,
-          text: 'Token expired - please re-authenticate',
-          className: 'settings__status--error'
+          text: 'Expired',
+          className: 'settings__auth-badge--error'
         }
       case 'not_authenticated':
         return {
           icon: <LuInfo size={14} />,
-          text: 'Not authenticated',
-          className: 'settings__status--warning'
+          text: 'Not connected',
+          className: 'settings__auth-badge--disconnected'
         }
       case 'error':
         return {
           icon: <LuTriangleAlert size={14} />,
-          text: 'Error checking authentication',
-          className: 'settings__status--error'
+          text: 'Error',
+          className: 'settings__auth-badge--error'
         }
       default:
         return {
           icon: <LuInfo size={14} />,
-          text: 'Unknown status',
+          text: 'Unknown',
           className: ''
         }
     }
@@ -89,116 +146,214 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const needsReauth = authStatus === 'not_authenticated' || authStatus === 'token_expired' || authStatus === 'error'
   const isChecking = authStatus === 'checking'
 
+  const tabs = [
+    { id: 'account' as const, label: 'Account', icon: LuUser },
+    { id: 'connections' as const, label: 'Connections', icon: LuPlug },
+    { id: 'preferences' as const, label: 'Preferences', icon: LuPalette },
+  ]
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Settings" width={520}>
+    <Modal isOpen={isOpen} onClose={onClose} title="Settings" icon={<LuSettings size={18} />} width={640}>
       <div className="settings">
-        {/* AI Provider Section */}
-        <div className="settings__section">
-          <h3 className="settings__section-title">
-            <LuSparkles size={14} />
-            AI Provider
-          </h3>
-
-          {/* Claude Authentication Row */}
-          <div className="settings__row settings__row--column">
-            <div className="settings__row-info">
-              <span className="settings__row-label">Claude Authentication</span>
-              <span className="settings__row-desc">
-                Uses your Claude CLI token (same as Claude Code / Cursor)
-              </span>
-            </div>
-
-            {/* Status indicator */}
-            <div className={`settings__status ${statusDisplay.className}`}>
-              {statusDisplay.icon}
-              {statusDisplay.text}
-            </div>
-
-            <div className="settings__auth-actions">
-              {needsReauth && (
-                <button
-                  className="settings__auth-btn settings__auth-btn--primary"
-                  onClick={handleOpenTerminalLogin}
-                  disabled={isRefreshing || isChecking}
-                >
-                  <LuTerminal size={14} />
-                  Re-authenticate with Claude
-                </button>
-              )}
-
-              <button
-                className="settings__auth-btn"
-                onClick={handleRefreshAuth}
-                disabled={isRefreshing || isChecking}
-              >
-                <LuRefreshCw size={14} className={isRefreshing ? 'settings__status-icon--spin' : ''} />
-                {isRefreshing ? 'Checking...' : 'Refresh'}
-              </button>
-            </div>
-
-            {/* Login message */}
-            {loginMessage && (
-              <div className="settings__login-message">
-                {loginMessage}
-              </div>
-            )}
-          </div>
-
-          {/* Model Selector Row */}
-          <div className="settings__row">
-            <div className="settings__row-info">
-              <span className="settings__row-label">Model</span>
-              <span className="settings__row-desc">
-                Select which Claude model to use
-              </span>
-            </div>
-
-            <select
-              className="settings__select"
-              value={model}
-              onChange={handleModelChange}
-              disabled={!isConfigured}
+        {/* Sidebar */}
+        <nav className="settings__sidebar">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              className={`settings__nav-item ${activeTab === tab.id ? 'settings__nav-item--active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
             >
-              {AVAILABLE_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+              <tab.icon size={16} />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
 
-        {/* Appearance Section */}
-        <div className="settings__section">
-          <h3 className="settings__section-title">Appearance</h3>
+        {/* Content */}
+        <div className="settings__content">
+          {/* Account Tab */}
+          {activeTab === 'account' && (
+            <div className="settings__panel">
+              <div className="settings__panel-header">
+                <h3 className="settings__panel-title">Account</h3>
+                <p className="settings__panel-desc">Manage your profile information</p>
+              </div>
 
-          <div className="settings__row">
-            <div className="settings__row-info">
-              <span className="settings__row-label">Theme</span>
-              <span className="settings__row-desc">
-                Choose between light and dark mode
-              </span>
+              {/* Avatar Section */}
+              <div className="settings__avatar-section">
+                <button
+                  className="settings__avatar-btn"
+                  onClick={handleAvatarClick}
+                  style={{
+                    background: user?.avatarImage ? 'transparent' : user?.avatarColor || '#6366f1',
+                  }}
+                >
+                  {user?.avatarImage ? (
+                    <img src={user.avatarImage} alt={user.name} className="settings__avatar-img" />
+                  ) : (
+                    <span className="settings__avatar-initials">{getInitials(user?.name || 'U')}</span>
+                  )}
+                  <span className="settings__avatar-overlay">
+                    <LuCamera size={20} />
+                  </span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="settings__avatar-input"
+                />
+
+                {/* Color Picker */}
+                <div className="settings__color-picker">
+                  {NEXSPACE_COLORS.map(color => (
+                    <button
+                      key={color}
+                      className={`settings__color-swatch ${user?.avatarColor === color && !user?.avatarImage ? 'settings__color-swatch--active' : ''}`}
+                      style={{ background: color }}
+                      onClick={() => handleColorChange(color)}
+                      aria-label={`Select color ${color}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Form Fields */}
+              <div className="settings__form">
+                <div className="settings__field">
+                  <label className="settings__label">Name</label>
+                  <input
+                    type="text"
+                    className="settings__input"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Your name"
+                  />
+                </div>
+
+                <div className="settings__field">
+                  <label className="settings__label">Email</label>
+                  <input
+                    type="email"
+                    className="settings__input"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="your@email.com"
+                  />
+                </div>
+
+                {hasChanges && (
+                  <button
+                    className="settings__save-btn"
+                    onClick={handleSaveProfile}
+                    disabled={isSaving || !editName.trim()}
+                  >
+                    {isSaving ? 'Saving...' : 'Save changes'}
+                  </button>
+                )}
+              </div>
             </div>
+          )}
 
-            <div className="settings__theme-toggle">
-              <button
-                className={`settings__theme-btn ${theme === 'light' ? 'settings__theme-btn--active' : ''}`}
-                onClick={() => theme !== 'light' && toggleTheme()}
-                aria-label="Light mode"
-              >
-                <LuSun size={16} />
-                <span>Light</span>
-              </button>
-              <button
-                className={`settings__theme-btn ${theme === 'dark' ? 'settings__theme-btn--active' : ''}`}
-                onClick={() => theme !== 'dark' && toggleTheme()}
-                aria-label="Dark mode"
-              >
-                <LuMoon size={16} />
-                <span>Dark</span>
-              </button>
+          {/* Connections Tab */}
+          {activeTab === 'connections' && (
+            <div className="settings__panel">
+              <div className="settings__panel-header">
+                <h3 className="settings__panel-title">Connections</h3>
+                <p className="settings__panel-desc">Manage AI service connections</p>
+              </div>
+
+              <div className="settings__connection-card">
+                <div className="settings__connection-header">
+                  <div className="settings__connection-info">
+                    <div className="settings__connection-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                      </svg>
+                    </div>
+                    <div className="settings__connection-text">
+                      <span className="settings__connection-name">Claude</span>
+                      <span className="settings__connection-desc">Anthropic AI assistant</span>
+                    </div>
+                  </div>
+                  <div className="settings__connection-actions">
+                    <span className={`settings__auth-badge ${statusDisplay.className}`}>
+                      {statusDisplay.icon}
+                      {statusDisplay.text}
+                    </span>
+                    <button
+                      className="settings__refresh-btn"
+                      onClick={handleRefreshAuth}
+                      disabled={isRefreshing || isChecking}
+                      aria-label="Refresh status"
+                    >
+                      <LuRefreshCw size={14} className={isRefreshing ? 'settings__status-icon--spin' : ''} />
+                    </button>
+                  </div>
+                </div>
+
+                {needsReauth && (
+                  <button
+                    className="settings__connect-btn"
+                    onClick={handleOpenTerminalLogin}
+                    disabled={isRefreshing || isChecking}
+                  >
+                    <LuTerminal size={14} />
+                    Connect
+                  </button>
+                )}
+
+                {loginMessage && (
+                  <div className="settings__login-message">
+                    {loginMessage}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Preferences Tab */}
+          {activeTab === 'preferences' && (
+            <div className="settings__panel">
+              <div className="settings__panel-header">
+                <h3 className="settings__panel-title">Preferences</h3>
+                <p className="settings__panel-desc">Customize your experience</p>
+              </div>
+
+              <div className="settings__pref-row">
+                <div className="settings__pref-info">
+                  <span className="settings__pref-label">Theme</span>
+                  <span className="settings__pref-desc">Switch between light and dark mode</span>
+                </div>
+                <button
+                  className="settings__theme-switch"
+                  onClick={toggleTheme}
+                  aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+                >
+                  <span className={`settings__theme-option ${theme === 'light' ? 'settings__theme-option--active' : ''}`}>
+                    <LuSun size={14} />
+                  </span>
+                  <span className={`settings__theme-option ${theme === 'dark' ? 'settings__theme-option--active' : ''}`}>
+                    <LuMoon size={14} />
+                  </span>
+                  <span
+                    className="settings__theme-slider"
+                    style={{ transform: theme === 'dark' ? 'translateX(100%)' : 'translateX(0)' }}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Modal>
