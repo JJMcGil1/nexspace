@@ -11,6 +11,7 @@
   height: 100%;
   background: var(--color-canvas-bg);
   overflow: hidden;
+  position: relative; /* For fullscreen overlay positioning */
   transition: flex-grow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
               flex-basis 0.25s cubic-bezier(0.4, 0, 0.2, 1),
               max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1),

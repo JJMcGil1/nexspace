@@ -97,10 +97,7 @@ const DocumentNodeFullscreen: React.FC<DocumentNodeFullscreenProps> = ({
 
   return (
     <div className={`document-fullscreen ${isDark ? 'document-fullscreen--dark' : 'document-fullscreen--light'}`}>
-      {/* Backdrop */}
-      <div className="document-fullscreen__backdrop" onClick={onClose} />
-
-      {/* Modal */}
+      {/* Content container - fills the canvas area */}
       <div className="document-fullscreen__modal">
         {/* Header */}
         <div className="document-fullscreen__header">

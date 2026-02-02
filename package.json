@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "electron:dev": "vite",
     "electron:build": "vite build && electron-builder",
-    "electron:preview": "vite build && electron ."
+    "electron:preview": "vite build && electron .",
+    "release": "npm run electron:build && npm run release:hash",
+    "release:hash": "node scripts/generate-release-hash.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.3",

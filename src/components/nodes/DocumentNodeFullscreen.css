@@ -1,15 +1,23 @@
 /* ═══════════════════════════════════════════════════════════
    DocumentNodeFullscreen — Full-screen document editor overlay
+   Fills the canvas area (not a modal overlay)
    ═══════════════════════════════════════════════════════════ */
 
 .document-fullscreen {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 1000;
+  z-index: 100;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   animation: fullscreen-appear 0.2s ease-out;
+}
+
+.document-fullscreen--dark {
+  background: var(--color-canvas-bg, #111113);
+}
+
+.document-fullscreen--light {
+  background: var(--color-canvas-bg, #f5f5f7);
 }
 
 @keyframes fullscreen-appear {
@@ -21,53 +29,34 @@
   }
 }
 
-/* ── Backdrop ──────────────────────────────────────────── */
-.document-fullscreen__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-}
 
-.document-fullscreen--light .document-fullscreen__backdrop {
-  background: rgba(255, 255, 255, 0.8);
-}
-
-/* ── Modal ─────────────────────────────────────────────── */
+/* ── Container (replaces modal) ──────────────────────────── */
 .document-fullscreen__modal {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: calc(100% - 80px);
-  max-width: 900px;
-  height: calc(100% - 80px);
-  max-height: 800px;
-  border-radius: 16px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
-  animation: modal-appear 0.25s ease-out;
+  animation: fullscreen-content-appear 0.2s ease-out;
 }
 
 .document-fullscreen--dark .document-fullscreen__modal {
-  background: #1a1a1e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5),
-              0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  background: var(--color-canvas-bg, #111113);
 }
 
 .document-fullscreen--light .document-fullscreen__modal {
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.15);
+  background: var(--color-canvas-bg, #f5f5f7);
 }
 
-@keyframes modal-appear {
+@keyframes fullscreen-content-appear {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(20px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateY(0);
   }
 }
 
@@ -77,13 +66,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 20px;
+  padding: 16px 24px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .document-fullscreen--light .document-fullscreen__header {
   border-bottom-color: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .document-fullscreen__header-left {
@@ -185,8 +176,10 @@
 /* ── Content / Editor ──────────────────────────────────── */
 .document-fullscreen__content {
   flex: 1;
-  padding: 24px 32px;
+  padding: 32px 48px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .document-fullscreen__content::-webkit-scrollbar {
@@ -205,11 +198,13 @@
 /* ── TipTap Editor Styles ──────────────────────────────── */
 .document-fullscreen__editor {
   outline: none;
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 16px;
+  line-height: 1.75;
   color: var(--color-text-primary);
-  max-width: 720px;
+  max-width: 800px;
+  width: 100%;
   margin: 0 auto;
+  flex: 1;
 }
 
 .document-fullscreen__editor > * + * {
@@ -370,15 +365,15 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 12px 16px;
+  padding: 14px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.3);
   flex-shrink: 0;
 }
 
 .document-fullscreen--light .document-fullscreen__toolbar {
   border-top-color: rgba(0, 0, 0, 0.06);
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .document-fullscreen__toolbar-group {

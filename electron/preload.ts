@@ -4,6 +4,31 @@ import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
  * Expose a safe, typed API to the renderer process.
  * This is the ONLY bridge between Node/Electron and the browser context.
  */
+
+// Types for auto-updater
+interface UpdateInfo {
+  version: string
+  url: string
+  sha256: string
+  releaseNotes?: string
+  releaseDate?: string
+  mandatory?: boolean
+}
+
+interface UpdateCheckResult {
+  updateAvailable: boolean
+  currentVersion: string
+  latestVersion?: string
+  updateInfo?: UpdateInfo
+  error?: string
+}
+
+interface DownloadProgress {
+  percent: number
+  transferred: number
+  total: number
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   // Window controls
   minimize: () => ipcRenderer.send('window:minimize'),
@@ -86,6 +111,51 @@ contextBridge.exposeInMainWorld('electronAPI', {
       const handler = (_event: IpcRendererEvent, nexspaces: Array<{ id: string; nodes: unknown[]; edges: unknown[]; chatMessages?: unknown[] }>) => callback(nexspaces)
       ipcRenderer.on('canvas:refresh', handler)
       return () => ipcRenderer.removeListener('canvas:refresh', handler)
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // Auto-Updater API (Self-Signing with Hash Verification)
+  // ═══════════════════════════════════════════════════════════
+  updater: {
+    // Check for updates manually
+    checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+
+    // Download the update
+    downloadUpdate: () => ipcRenderer.invoke('updater:download'),
+
+    // Install the downloaded update (quits app)
+    installUpdate: () => ipcRenderer.invoke('updater:install'),
+
+    // Get current app version
+    getVersion: () => ipcRenderer.invoke('updater:getVersion'),
+
+    // Dismiss the update notification
+    dismissUpdate: () => ipcRenderer.invoke('updater:dismiss'),
+
+    // Event listeners
+    onUpdateAvailable: (callback: (result: UpdateCheckResult) => void) => {
+      const handler = (_event: IpcRendererEvent, result: UpdateCheckResult) => callback(result)
+      ipcRenderer.on('update:available', handler)
+      return () => ipcRenderer.removeListener('update:available', handler)
+    },
+
+    onDownloadProgress: (callback: (progress: DownloadProgress) => void) => {
+      const handler = (_event: IpcRendererEvent, progress: DownloadProgress) => callback(progress)
+      ipcRenderer.on('update:download-progress', handler)
+      return () => ipcRenderer.removeListener('update:download-progress', handler)
+    },
+
+    onUpdateDownloaded: (callback: (info: { filePath: string }) => void) => {
+      const handler = (_event: IpcRendererEvent, info: { filePath: string }) => callback(info)
+      ipcRenderer.on('update:downloaded', handler)
+      return () => ipcRenderer.removeListener('update:downloaded', handler)
+    },
+
+    onUpdateError: (callback: (info: { error: string }) => void) => {
+      const handler = (_event: IpcRendererEvent, info: { error: string }) => callback(info)
+      ipcRenderer.on('update:error', handler)
+      return () => ipcRenderer.removeListener('update:error', handler)
     },
   },
 })

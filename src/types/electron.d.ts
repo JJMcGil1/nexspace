@@ -149,6 +149,46 @@ export interface NexSpace {
   chatMessages?: ChatMessage[]
 }
 
+// ═══════════════════════════════════════════════════════════
+// Auto-Updater Types (Self-Signing with Hash Verification)
+// ═══════════════════════════════════════════════════════════
+
+export interface UpdateInfo {
+  version: string
+  url: string
+  sha256: string
+  releaseNotes?: string
+  releaseDate?: string
+  mandatory?: boolean
+}
+
+export interface UpdateCheckResult {
+  updateAvailable: boolean
+  currentVersion: string
+  latestVersion?: string
+  updateInfo?: UpdateInfo
+  error?: string
+}
+
+export interface DownloadProgress {
+  percent: number
+  transferred: number
+  total: number
+}
+
+interface UpdaterAPI {
+  checkForUpdates: () => Promise<UpdateCheckResult>
+  downloadUpdate: () => Promise<{ success: boolean; error?: string }>
+  installUpdate: () => Promise<{ success: boolean; error?: string }>
+  getVersion: () => Promise<string>
+  dismissUpdate: () => Promise<{ success: boolean }>
+  // Event listeners
+  onUpdateAvailable: (callback: (result: UpdateCheckResult) => void) => () => void
+  onDownloadProgress: (callback: (progress: DownloadProgress) => void) => () => void
+  onUpdateDownloaded: (callback: (info: { filePath: string }) => void) => () => void
+  onUpdateError: (callback: (info: { error: string }) => void) => () => void
+}
+
 // Canvas API for MCP tools / agent access
 interface CanvasAPIResult<T> {
   success: boolean
@@ -181,6 +221,7 @@ export interface ElectronAPI {
   claude: ClaudeAPI
   store: StoreAPI
   canvas: CanvasAPI
+  updater: UpdaterAPI
 }
 
 declare global {

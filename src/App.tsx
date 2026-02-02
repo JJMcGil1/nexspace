@@ -6,6 +6,7 @@ import FlowCanvas from './components/FlowCanvas'
 import SharePanel from './components/SharePanel'
 import SettingsModal from './components/SettingsModal'
 import DeleteConfirmationModal from './components/DeleteConfirmationModal'
+import UpdateModal from './components/UpdateModal'
 import Onboarding from './components/Onboarding'
 import { useUser, NEXSPACE_COLORS } from './contexts/UserContext'
 import { useCanvas } from './contexts/CanvasContext'
@@ -159,6 +160,9 @@ const App: React.FC = () => {
 
       {/* Global Delete Confirmation Modal */}
       <DeleteConfirmationModal />
+
+      {/* Auto-Update Modal (Self-Signing with Hash Verification) */}
+      <UpdateModal />
     </div>
   )
 }

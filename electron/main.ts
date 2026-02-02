@@ -4,6 +4,13 @@ import fs from 'fs'
 import os from 'os'
 import { spawn } from 'child_process'
 import Store from 'electron-store'
+import {
+  initAutoUpdater,
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
+  getCurrentVersion
+} from './auto-updater'
 
 // Handle EPIPE errors gracefully (happens when writing to closed pipes)
 process.on('uncaughtException', (error) => {
@@ -461,6 +468,59 @@ function createWindow() {
       return { success: true }
     }
     return { success: false, error: 'Window not available' }
+  })
+
+  // ═══════════════════════════════════════════════════════════
+  // Auto-Updater IPC Handlers (Self-Signing with Hash Verification)
+  // ═══════════════════════════════════════════════════════════
+
+  // Store for update info
+  let currentUpdateInfo: { version: string; url: string; sha256: string; releaseNotes?: string } | null = null
+
+  // Initialize auto-updater
+  initAutoUpdater(mainWindow)
+
+  // Check for updates
+  ipcMain.handle('updater:check', async () => {
+    try {
+      const result = await checkForUpdates()
+      if (result.updateInfo) {
+        currentUpdateInfo = result.updateInfo
+      }
+      return result
+    } catch (error) {
+      console.error('[Updater] Check failed:', error)
+      return {
+        updateAvailable: false,
+        currentVersion: getCurrentVersion(),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  })
+
+  // Download update
+  ipcMain.handle('updater:download', async () => {
+    if (!currentUpdateInfo) {
+      return { success: false, error: 'No update available' }
+    }
+    return downloadUpdate(currentUpdateInfo)
+  })
+
+  // Install update
+  ipcMain.handle('updater:install', async () => {
+    return installUpdate()
+  })
+
+  // Get current version
+  ipcMain.handle('updater:getVersion', () => {
+    return getCurrentVersion()
+  })
+
+  // Dismiss update notification
+  ipcMain.handle('updater:dismiss', () => {
+    // Could store this in electron-store to not show again for this version
+    console.log('[Updater] Update dismissed by user')
+    return { success: true }
   })
 
   mainWindow.on('closed', () => {
