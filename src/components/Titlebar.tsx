@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { LuPlus, LuSearch, LuX } from 'react-icons/lu'
-import { FaRegShareSquare } from 'react-icons/fa'
 import { IoDocumentText } from 'react-icons/io5'
 import { useTheme } from '../contexts/ThemeContext'
 import { useCanvas } from '../contexts/CanvasContext'
@@ -15,7 +14,6 @@ interface TitlebarProps {
   canvasOpen: boolean
   onToggleCanvas: () => void
   onNewCanvas?: () => void
-  onShare?: () => void
 }
 
 /**
@@ -32,7 +30,6 @@ const Titlebar: React.FC<TitlebarProps> = ({
   canvasOpen,
   onToggleCanvas,
   onNewCanvas,
-  onShare,
 }) => {
   const { theme } = useTheme()
   const { currentNexSpace, nodes } = useCanvas()
@@ -247,16 +244,6 @@ const Titlebar: React.FC<TitlebarProps> = ({
       </div>
 
       <div className="titlebar__spacer" />
-
-      {/* Share button */}
-      <button
-        className="titlebar__share no-drag"
-        onClick={onShare}
-        aria-label="Share"
-      >
-        <FaRegShareSquare size={14} />
-        <span>Share</span>
-      </button>
 
       {/* New NexSpace button */}
       <button

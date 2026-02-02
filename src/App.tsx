@@ -134,7 +134,6 @@ const App: React.FC = () => {
         canvasOpen={canvasOpen}
         onToggleCanvas={toggleCanvas}
         onNewCanvas={handleNewCanvas}
-        onShare={toggleShare}
       />
       <div className="app__body" ref={appBodyRef}>
         <Sidebar isOpen={sidebarOpen} onOpenSettings={openSettings} />
