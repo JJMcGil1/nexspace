@@ -40,8 +40,8 @@ const UPDATE_CONFIG = {
   owner: 'JJMcGil1',
   repo: 'nexspace',
 
-  // Check interval in milliseconds (default: 1 hour)
-  checkInterval: 60 * 60 * 1000,
+  // Check interval in milliseconds (default: 5 minutes)
+  checkInterval: 5 * 60 * 1000,
 
   // Enable automatic checking on app start
   autoCheck: true,
