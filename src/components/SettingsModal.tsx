@@ -21,6 +21,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('account')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [loginMessage, setLoginMessage] = useState<string | null>(null)
+  const [appVersion, setAppVersion] = useState<string>('')
+
+  // Get app version on mount
+  React.useEffect(() => {
+    window.electronAPI?.updater?.getVersion?.().then((version: string) => {
+      setAppVersion(version || '0.0.0')
+    })
+  }, [])
 
   // Account editing state
   const [editName, setEditName] = useState(user?.name || '')
@@ -351,6 +359,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     style={{ transform: theme === 'dark' ? 'translateX(100%)' : 'translateX(0)' }}
                   />
                 </button>
+              </div>
+
+              {/* Version Info */}
+              <div className="settings__pref-row settings__pref-row--version">
+                <div className="settings__pref-info">
+                  <span className="settings__pref-label">Version</span>
+                  <span className="settings__pref-desc">Current app version</span>
+                </div>
+                <span className="settings__version-badge">v{appVersion}</span>
               </div>
             </div>
           )}
