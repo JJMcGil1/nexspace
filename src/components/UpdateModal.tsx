@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { LuSparkles, LuRefreshCw } from 'react-icons/lu'
+import { LuRefreshCw } from 'react-icons/lu'
+import { RxUpdate } from 'react-icons/rx'
 import './UpdateModal.css'
 
 // Types matching the preload API
@@ -29,9 +30,12 @@ interface DownloadProgress {
 
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'error'
 
+// DEV MODE: Set to true to always show the toast for UI development
+const DEV_PREVIEW = false
+
 const UpdateToast: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false)
-  const [status, setStatus] = useState<UpdateStatus>('idle')
+  const [isOpen, setIsOpen] = useState(DEV_PREVIEW)
+  const [status, setStatus] = useState<UpdateStatus>(DEV_PREVIEW ? 'available' : 'idle')
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null)
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -135,18 +139,70 @@ const UpdateToast: React.FC = () => {
   if (!isOpen) return null
 
   const info = updateInfo?.updateInfo
-  const version = info?.version || updateInfo?.latestVersion || ''
+  const version = info?.version || updateInfo?.latestVersion || (DEV_PREVIEW ? '0.1.14' : '')
 
   return createPortal(
     <div className="update-toast" role="dialog" aria-label="Update available">
-      {/* Header row with icon and title */}
-      <div className="update-toast__header">
+      {/* Main row with icon, title, and actions */}
+      <div className="update-toast__row">
         <div className="update-toast__icon">
-          <LuSparkles size={16} />
+          <RxUpdate size={18} />
         </div>
         <div className="update-toast__title-group">
           <span className="update-toast__title">Update Available</span>
           <span className="update-toast__version">v{version}</span>
+        </div>
+
+        {/* Action buttons inline */}
+        <div className="update-toast__actions">
+          {status === 'available' && (
+            <>
+              {!info?.mandatory && (
+                <button className="update-toast__btn update-toast__btn--ghost" onClick={handleLater}>
+                  Later
+                </button>
+              )}
+              <button className="update-toast__btn update-toast__btn--primary" onClick={handleDownload}>
+                Download
+              </button>
+            </>
+          )}
+
+          {status === 'downloading' && (
+            <button className="update-toast__btn update-toast__btn--ghost" disabled>
+              <LuRefreshCw size={14} className="update-toast__spinner" />
+              {downloadProgress ? `${Math.round(downloadProgress.percent)}%` : 'Starting...'}
+            </button>
+          )}
+
+          {status === 'downloaded' && (
+            <>
+              <button className="update-toast__btn update-toast__btn--ghost" onClick={handleLater}>
+                Later
+              </button>
+              <button className="update-toast__btn update-toast__btn--primary" onClick={handleInstall}>
+                Install
+              </button>
+            </>
+          )}
+
+          {status === 'installing' && (
+            <button className="update-toast__btn update-toast__btn--ghost" disabled>
+              <LuRefreshCw size={14} className="update-toast__spinner" />
+              Installing...
+            </button>
+          )}
+
+          {status === 'error' && (
+            <>
+              <button className="update-toast__btn update-toast__btn--ghost" onClick={handleLater}>
+                Later
+              </button>
+              <button className="update-toast__btn update-toast__btn--primary" onClick={handleRetry}>
+                Retry
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -166,58 +222,6 @@ const UpdateToast: React.FC = () => {
           {error}
         </div>
       )}
-
-      {/* Action buttons */}
-      <div className="update-toast__actions">
-        {status === 'available' && (
-          <>
-            {!info?.mandatory && (
-              <button className="update-toast__btn update-toast__btn--ghost" onClick={handleLater}>
-                Later
-              </button>
-            )}
-            <button className="update-toast__btn update-toast__btn--primary" onClick={handleDownload}>
-              Download
-            </button>
-          </>
-        )}
-
-        {status === 'downloading' && (
-          <button className="update-toast__btn update-toast__btn--ghost" disabled>
-            <LuRefreshCw size={14} className="update-toast__spinner" />
-            {downloadProgress ? `${Math.round(downloadProgress.percent)}%` : 'Starting...'}
-          </button>
-        )}
-
-        {status === 'downloaded' && (
-          <>
-            <button className="update-toast__btn update-toast__btn--ghost" onClick={handleLater}>
-              Later
-            </button>
-            <button className="update-toast__btn update-toast__btn--primary" onClick={handleInstall}>
-              Install
-            </button>
-          </>
-        )}
-
-        {status === 'installing' && (
-          <button className="update-toast__btn update-toast__btn--ghost" disabled>
-            <LuRefreshCw size={14} className="update-toast__spinner" />
-            Installing...
-          </button>
-        )}
-
-        {status === 'error' && (
-          <>
-            <button className="update-toast__btn update-toast__btn--ghost" onClick={handleLater}>
-              Later
-            </button>
-            <button className="update-toast__btn update-toast__btn--primary" onClick={handleRetry}>
-              Retry
-            </button>
-          </>
-        )}
-      </div>
     </div>,
     document.body
   )
