@@ -83,12 +83,20 @@ export function useSpreadsheet({ initialData, onChange }: UseSpreadsheetOptions)
   const [cells, setCells] = useState<Record<string, Cell>>(initialData.cells || {})
   const [rowCount, setRowCount] = useState(initialData.rowCount || 100)
   const [colCount, setColCount] = useState(initialData.colCount || 26)
-  const [columnWidths, setColumnWidths] = useState<number[]>(
-    initialData.columnWidths || Array(colCount).fill(DEFAULT_COL_WIDTH)
-  )
-  const [rowHeights, setRowHeights] = useState<number[]>(
-    initialData.rowHeights || Array(rowCount).fill(DEFAULT_ROW_HEIGHT)
-  )
+  const [columnWidths, setColumnWidths] = useState<number[]>(() => {
+    // Ensure columnWidths is always a valid array
+    if (Array.isArray(initialData.columnWidths) && initialData.columnWidths.length > 0) {
+      return initialData.columnWidths
+    }
+    return Array(initialData.colCount || 26).fill(DEFAULT_COL_WIDTH)
+  })
+  const [rowHeights, setRowHeights] = useState<number[]>(() => {
+    // Ensure rowHeights is always a valid array
+    if (Array.isArray(initialData.rowHeights) && initialData.rowHeights.length > 0) {
+      return initialData.rowHeights
+    }
+    return Array(initialData.rowCount || 100).fill(DEFAULT_ROW_HEIGHT)
+  })
 
   // Selection state
   const [selection, setSelection] = useState<SpreadsheetSelection>({

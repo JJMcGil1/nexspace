@@ -1,6 +1,6 @@
 {
   "name": "nexspace",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "NexSpace — AI-powered workspace with chat and flow canvas",
   "main": "dist-electron/main.js",
   "author": "NexSpace",

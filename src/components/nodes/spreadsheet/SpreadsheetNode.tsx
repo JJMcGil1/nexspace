@@ -170,14 +170,16 @@ const SpreadsheetNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     return top
   }, [rowHeights])
 
-  // Total dimensions
+  // Total dimensions (with safety checks)
   const totalWidth = useMemo(() => {
+    if (!Array.isArray(columnWidths)) return colCount * DEFAULT_COL_WIDTH
     return columnWidths.reduce((sum, w) => sum + (w || DEFAULT_COL_WIDTH), 0)
-  }, [columnWidths])
+  }, [columnWidths, colCount])
 
   const totalHeight = useMemo(() => {
+    if (!Array.isArray(rowHeights)) return rowCount * DEFAULT_ROW_HEIGHT
     return rowHeights.reduce((sum, h) => sum + (h || DEFAULT_ROW_HEIGHT), 0)
-  }, [rowHeights])
+  }, [rowHeights, rowCount])
 
   // Handle scroll
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
