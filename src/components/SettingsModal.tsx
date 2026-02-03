@@ -356,7 +356,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </span>
                   <span
                     className="settings__theme-slider"
-                    style={{ transform: theme === 'dark' ? 'translateX(100%)' : 'translateX(0)' }}
+                    style={{ transform: theme === 'dark' ? 'translateX(36px)' : 'translateX(0)' }}
                   />
                 </button>
               </div>

@@ -420,12 +420,18 @@
   position: relative;
   display: flex;
   align-items: center;
-  padding: 4px;
+  padding: 3px;
   background: var(--color-bg-active);
-  border: none;
-  border-radius: 10px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
   cursor: pointer;
   overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.settings__theme-switch:hover {
+  border-color: var(--color-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .settings__theme-option {
@@ -434,26 +440,34 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 28px;
+  width: 36px;
+  height: 30px;
   color: var(--color-text-muted);
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, transform 0.15s ease;
+}
+
+.settings__theme-option:hover {
+  transform: scale(1.1);
 }
 
 .settings__theme-option--active {
   color: var(--color-text-primary);
 }
 
+.settings__theme-option--active:hover {
+  transform: scale(1);
+}
+
 .settings__theme-slider {
   position: absolute;
-  left: 4px;
-  width: 32px;
-  height: 28px;
+  left: 3px;
+  width: 36px;
+  height: 30px;
   background: var(--color-bg-surface);
-  border-radius: 7px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1),
+  border-radius: 9px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08),
               0 0 0 1px var(--color-border);
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ── Spin Animation ─────────────────────────────────────────── */
@@ -468,20 +482,29 @@
 
 /* ── Version Badge ─────────────────────────────────────────── */
 .settings__pref-row--version {
-  margin-top: 8px;
+  margin-top: 12px;
   border-top: 1px solid var(--color-border-subtle);
-  padding-top: 20px;
+  padding-top: 24px;
 }
 
 .settings__version-badge {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
+  gap: 6px;
+  padding: 8px 14px;
   font-size: 13px;
   font-weight: 600;
   font-family: var(--font-mono);
-  color: var(--color-text-secondary);
-  background: var(--color-bg-elevated);
+  color: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-bg-elevated) 0%, var(--color-bg-hover) 100%);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  letter-spacing: 0.02em;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings__version-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
 }
