@@ -41,11 +41,14 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
   // Debounce timer for content saves
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  // Track if we made the last update (to avoid syncing our own changes)
+  const isSelfUpdate = useRef(false)
 
   // Save content to node data (debounced to prevent focus loss)
   // Uses useCanvas().updateNode to ensure persistence to electron-store
   const saveContent = useCallback((html: string) => {
     console.log('[DocumentNode] Saving content for node:', id)
+    isSelfUpdate.current = true
     updateNode(id, { content: html })
   }, [id, updateNode])
 
@@ -136,6 +139,22 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       setTitle(nodeData.title)
     }
   }, [nodeData.title])
+
+  // Sync content from props (for external changes like fullscreen edits)
+  // Only syncs when content was changed externally, not from our own typing
+  useEffect(() => {
+    if (editor && nodeData.content !== undefined) {
+      if (isSelfUpdate.current) {
+        isSelfUpdate.current = false
+        return // Skip sync - this was our own update
+      }
+      const currentContent = editor.getHTML()
+      if (nodeData.content !== currentContent) {
+        console.log('[DocumentNode] Syncing content from props (external change) for node:', id)
+        editor.commands.setContent(nodeData.content, { emitUpdate: false })
+      }
+    }
+  }, [nodeData.content, editor, id])
 
   // Handle duplicate node
   // Uses useCanvas().addNode to ensure persistence to electron-store

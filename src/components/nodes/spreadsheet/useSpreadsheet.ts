@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import {
   Cell,
   CellPosition,
@@ -206,10 +206,50 @@ export function useSpreadsheet({ initialData, onChange }: UseSpreadsheetOptions)
     initialData.cellComments || {}
   )
 
+  // Track if we made the last update (to avoid syncing our own changes)
+  const isSelfUpdate = useRef(false)
+
   // Helper to sync changes
   const syncChanges = useCallback((updates: Partial<SpreadsheetNodeData>) => {
+    isSelfUpdate.current = true
     onChange(updates)
   }, [onChange])
+
+  // Sync state from props (for external changes like fullscreen edits)
+  // Only syncs when data was changed externally, not from our own edits
+  useEffect(() => {
+    if (isSelfUpdate.current) {
+      isSelfUpdate.current = false
+      return // Skip sync - this was our own update
+    }
+    // Sync cells if they changed externally
+    if (initialData.cells && JSON.stringify(initialData.cells) !== JSON.stringify(cells)) {
+      console.log('[useSpreadsheet] Syncing cells from props (external change)')
+      setCells(initialData.cells)
+    }
+    // Sync other data that might have changed
+    if (initialData.rowCount !== undefined && initialData.rowCount !== rowCount) {
+      setRowCount(initialData.rowCount)
+    }
+    if (initialData.colCount !== undefined && initialData.colCount !== colCount) {
+      setColCount(initialData.colCount)
+    }
+    if (initialData.frozenRows !== undefined && initialData.frozenRows !== frozenRows) {
+      setFrozenRows(initialData.frozenRows)
+    }
+    if (initialData.frozenCols !== undefined && initialData.frozenCols !== frozenCols) {
+      setFrozenCols(initialData.frozenCols)
+    }
+    if (initialData.conditionalFormatRules) {
+      setConditionalFormatRules(initialData.conditionalFormatRules)
+    }
+    if (initialData.dataValidationRules) {
+      setDataValidationRules(initialData.dataValidationRules)
+    }
+    if (initialData.cellComments) {
+      setCellComments(initialData.cellComments)
+    }
+  }, [initialData])
 
   // Get cell at position
   const getCell = useCallback((row: number, col: number): Cell | undefined => {
