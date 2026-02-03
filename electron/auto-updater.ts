@@ -531,47 +531,120 @@ export async function installUpdate(): Promise<{ success: boolean; error?: strin
 
   try {
     const ext = path.extname(downloadedFilePath).toLowerCase()
+    const { execSync } = await import('child_process')
 
     if (process.platform === 'darwin') {
-      // macOS: Open the DMG or ZIP
+      // macOS: Seamless DMG install
       if (ext === '.dmg') {
-        // Open DMG file
-        const { spawn } = await import('child_process')
-        spawn('open', [downloadedFilePath as string], { detached: true })
-      } else if (ext === '.zip') {
-        // Extract and open the app
-        const { spawn, execSync } = await import('child_process')
-        const extractDir = path.join(os.tmpdir(), 'nexspace-update-extract')
+        const mountPoint = '/Volumes/NexSpace-Update'
+        const appPath = app.getPath('exe').replace(/\/Contents\/MacOS\/.*$/, '')
+        const appName = 'NexSpace.app'
 
-        // Unzip using execSync for simplicity
+        console.log('[AutoUpdater] Current app path:', appPath)
+
+        // Unmount if already mounted (from previous failed attempt)
         try {
-          execSync(`unzip -o "${downloadedFilePath}" -d "${extractDir}"`)
+          execSync(`hdiutil detach "${mountPoint}" -quiet -force 2>/dev/null || true`)
         } catch {
-          throw new Error('Failed to extract update')
+          // Ignore errors
         }
 
-        // Find and open the .app
-        const files = fs.readdirSync(extractDir)
-        const appFile = files.find(f => f.endsWith('.app'))
-        if (appFile) {
-          spawn('open', [path.join(extractDir, appFile)], { detached: true })
+        // Mount the DMG silently
+        console.log('[AutoUpdater] Mounting DMG...')
+        try {
+          execSync(`hdiutil attach "${downloadedFilePath}" -mountpoint "${mountPoint}" -nobrowse -quiet`)
+        } catch (err) {
+          throw new Error('Failed to mount DMG')
         }
+
+        // Find the .app in the mounted DMG
+        const mountedFiles = fs.readdirSync(mountPoint)
+        const newApp = mountedFiles.find(f => f.endsWith('.app'))
+        if (!newApp) {
+          execSync(`hdiutil detach "${mountPoint}" -quiet -force`)
+          throw new Error('No app found in DMG')
+        }
+
+        const newAppPath = path.join(mountPoint, newApp)
+        console.log('[AutoUpdater] Found new app:', newAppPath)
+
+        // Create a shell script that will:
+        // 1. Wait for the current app to quit
+        // 2. Copy the new app to /Applications
+        // 3. Launch the new app
+        // 4. Clean up
+        const updateScript = `#!/bin/bash
+# Wait for the app to quit (check every 0.5 seconds, max 30 seconds)
+for i in {1..60}; do
+  if ! pgrep -x "NexSpace" > /dev/null 2>&1; then
+    break
+  fi
+  sleep 0.5
+done
+
+# Small delay to ensure file handles are released
+sleep 1
+
+# Remove old app and copy new one
+rm -rf "${appPath}"
+cp -R "${newAppPath}" "${path.dirname(appPath)}/"
+
+# Unmount the DMG
+hdiutil detach "${mountPoint}" -quiet -force 2>/dev/null || true
+
+# Remove the downloaded DMG
+rm -f "${downloadedFilePath}"
+
+# Launch the new app
+open "${appPath}"
+`
+
+        // Write and execute the update script
+        const scriptPath = path.join(os.tmpdir(), 'nexspace-update.sh')
+        fs.writeFileSync(scriptPath, updateScript, { mode: 0o755 })
+
+        console.log('[AutoUpdater] Running update script...')
+        const { spawn } = await import('child_process')
+        spawn('/bin/bash', [scriptPath], {
+          detached: true,
+          stdio: 'ignore',
+        }).unref()
+
+        // Quit the app to let the script do its work
+        setTimeout(() => {
+          app.quit()
+        }, 500)
+
+        return { success: true }
       }
     } else if (process.platform === 'win32') {
-      // Windows: Run the installer
+      // Windows: Run the installer silently
       const { spawn } = await import('child_process')
-      spawn(downloadedFilePath as string, [], { detached: true, shell: true })
-    } else {
-      // Linux: Make AppImage executable and run
-      const { spawn } = await import('child_process')
-      fs.chmodSync(downloadedFilePath as string, '755')
-      spawn(downloadedFilePath as string, [], { detached: true })
-    }
+      // NSIS installers support /S for silent install
+      spawn(downloadedFilePath as string, ['/S'], { detached: true, shell: true })
 
-    // Quit the current app after a short delay
-    setTimeout(() => {
-      app.quit()
-    }, 1000)
+      setTimeout(() => {
+        app.quit()
+      }, 1000)
+    } else {
+      // Linux: Replace AppImage and relaunch
+      const currentAppImage = process.env.APPIMAGE
+      if (currentAppImage) {
+        // Make new AppImage executable
+        fs.chmodSync(downloadedFilePath as string, '755')
+
+        // Replace the old AppImage
+        fs.copyFileSync(downloadedFilePath as string, currentAppImage)
+
+        // Launch the new version
+        const { spawn } = await import('child_process')
+        spawn(currentAppImage, [], { detached: true, stdio: 'ignore' }).unref()
+      }
+
+      setTimeout(() => {
+        app.quit()
+      }, 1000)
+    }
 
     return { success: true }
   } catch (error) {
