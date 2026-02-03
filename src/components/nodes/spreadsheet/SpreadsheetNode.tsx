@@ -1,10 +1,11 @@
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react'
-import { NodeProps, useReactFlow } from '@xyflow/react'
+import { NodeProps } from '@xyflow/react'
 import { IoMove } from 'react-icons/io5'
 import { LuCopy, LuMaximize2, LuTrash2 } from 'react-icons/lu'
 import { BsFileSpreadsheetFill } from 'react-icons/bs'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { useDeleteConfirmation } from '../../../contexts/DeleteConfirmationContext'
+import { useCanvas } from '../../../contexts/CanvasContext'
 import { useSpreadsheet } from './useSpreadsheet'
 import {
   SpreadsheetNodeData,
@@ -22,7 +23,7 @@ type ResizeDirection = 'left' | 'right' | 'bottom' | 'bottom-left' | 'bottom-rig
 const SpreadsheetNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const { setNodes, getNodes } = useReactFlow()
+  const { updateNode, deleteNode: deleteCanvasNode, addNode, nodes: canvasNodes, setNodes: setCanvasNodes } = useCanvas()
   const { showDeleteConfirmation } = useDeleteConfirmation()
 
   const nodeData = useMemo(() => {
@@ -49,21 +50,16 @@ const SpreadsheetNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   // Debounce timer for saves
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Save to node data
+  // Save to node data using CanvasContext for persistence
   const saveData = useCallback((updates: Partial<SpreadsheetNodeData>) => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
     }
     saveTimerRef.current = setTimeout(() => {
-      setNodes((nodes) =>
-        nodes.map((node) =>
-          node.id === id
-            ? { ...node, data: { ...node.data, ...updates } }
-            : node
-        )
-      )
+      console.log('[SpreadsheetNode] Saving data for node:', id)
+      updateNode(id, updates)
     }, 300)
-  }, [id, setNodes])
+  }, [id, updateNode])
 
   // Use spreadsheet hook
   const spreadsheet = useSpreadsheet({
@@ -303,26 +299,25 @@ const SpreadsheetNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     }
   }, [nodeData.title])
 
-  // Duplicate node
+  // Duplicate node using CanvasContext for persistence
   const handleDuplicate = useCallback(() => {
-    const nodes = getNodes()
-    const currentNode = nodes.find((n) => n.id === id)
+    const currentNode = canvasNodes.find((n) => n.id === id)
     if (!currentNode) return
 
     const newNode = {
-      ...currentNode,
-      id: `node-${Date.now()}`,
+      id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      type: currentNode.type,
       position: {
         x: currentNode.position.x + 40,
         y: currentNode.position.y + 40,
       },
       data: { ...currentNode.data },
-      selected: false,
     }
-    setNodes((nds) => [...nds, newNode])
-  }, [id, getNodes, setNodes])
+    console.log('[SpreadsheetNode] Duplicating node:', id, 'as', newNode.id)
+    addNode(newNode)
+  }, [id, canvasNodes, addNode])
 
-  // Delete node
+  // Delete node using CanvasContext for persistence
   const handleDelete = useCallback(() => {
     showDeleteConfirmation({
       title: 'Delete Spreadsheet',
@@ -330,10 +325,11 @@ const SpreadsheetNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       itemName: title,
       confirmLabel: 'Delete Spreadsheet',
       onConfirm: () => {
-        setNodes((nds) => nds.filter((node) => node.id !== id))
+        console.log('[SpreadsheetNode] Deleting node:', id)
+        deleteCanvasNode(id)
       },
     })
-  }, [id, setNodes, showDeleteConfirmation, title])
+  }, [id, deleteCanvasNode, showDeleteConfirmation, title])
 
   // Fullscreen
   const handleFullscreen = useCallback(() => {
@@ -346,8 +342,7 @@ const SpreadsheetNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     e.preventDefault()
     e.stopPropagation()
 
-    const nodes = getNodes()
-    const currentNode = nodes.find((n) => n.id === id)
+    const currentNode = canvasNodes.find((n) => n.id === id)
     if (!currentNode) return
 
     setIsResizing(true)
@@ -355,7 +350,7 @@ const SpreadsheetNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     resizeStartSize.current = { width, height }
     resizeStartPos.current = { x: currentNode.position.x, y: currentNode.position.y }
     resizeDirection.current = direction
-  }, [width, height, getNodes, id])
+  }, [width, height, canvasNodes, id])
 
   const handleResizeMove = useCallback((e: MouseEvent) => {
     if (!isResizing) return
@@ -374,7 +369,8 @@ const SpreadsheetNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       const newX = resizeStartPos.current.x + actualWidthDelta
 
       setWidth(newWidth)
-      setNodes((nodes) =>
+      // Use CanvasContext's setNodes for position updates to ensure persistence
+      setCanvasNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
             ? { ...node, position: { ...node.position, x: newX } }
@@ -387,7 +383,7 @@ const SpreadsheetNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       const newHeight = Math.max(250, Math.min(800, resizeStartSize.current.height + deltaY))
       setHeight(newHeight)
     }
-  }, [isResizing, id, setNodes])
+  }, [isResizing, id, setCanvasNodes])
 
   const handleResizeEnd = useCallback(() => {
     if (!isResizing) return

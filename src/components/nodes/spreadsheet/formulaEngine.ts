@@ -1,7 +1,7 @@
 import { Cell, cellKey, parseCellAddress } from './types'
 
 interface FormulaResult {
-  value: number | string | null
+  value: number | string | boolean | null | (number | string | null)[]
   error?: string
 }
 
@@ -40,8 +40,59 @@ function expandRange(
   return values
 }
 
-// Built-in functions
-const FUNCTIONS: Record<string, (...args: (number | string | null)[]) => number | string> = {
+// Helper to convert value to number
+const toNum = (v: unknown): number => {
+  if (typeof v === 'number') return v
+  const n = parseFloat(String(v))
+  return isNaN(n) ? 0 : n
+}
+
+// Helper to check if value matches criteria (for SUMIF, COUNTIF, etc.)
+const matchesCriteria = (value: unknown, criteria: string): boolean => {
+  const strValue = String(value ?? '').toLowerCase()
+  const strCriteria = String(criteria).toLowerCase()
+
+  // Handle comparison operators
+  if (strCriteria.startsWith('>=')) {
+    return toNum(value) >= toNum(strCriteria.slice(2))
+  }
+  if (strCriteria.startsWith('<=')) {
+    return toNum(value) <= toNum(strCriteria.slice(2))
+  }
+  if (strCriteria.startsWith('<>') || strCriteria.startsWith('!=')) {
+    return strValue !== strCriteria.slice(2).toLowerCase()
+  }
+  if (strCriteria.startsWith('>')) {
+    return toNum(value) > toNum(strCriteria.slice(1))
+  }
+  if (strCriteria.startsWith('<')) {
+    return toNum(value) < toNum(strCriteria.slice(1))
+  }
+  if (strCriteria.startsWith('=')) {
+    return strValue === strCriteria.slice(1).toLowerCase()
+  }
+
+  // Handle wildcards (* and ?)
+  if (strCriteria.includes('*') || strCriteria.includes('?')) {
+    const regex = new RegExp(
+      '^' + strCriteria.replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
+      'i'
+    )
+    return regex.test(strValue)
+  }
+
+  // Exact match
+  return strValue === strCriteria
+}
+
+// Type for function return values
+type FuncReturnValue = number | string | boolean | null | (number | string | null)[]
+
+// Built-in functions - Google Sheets/Excel compatible
+const FUNCTIONS: Record<string, (...args: (number | string | null | (number | string | null)[])[]) => FuncReturnValue> = {
+  // ═══════════════════════════════════════════════════════════
+  // MATH FUNCTIONS
+  // ═══════════════════════════════════════════════════════════
   SUM: (...args) => {
     let sum = 0
     for (const arg of args.flat(Infinity)) {
@@ -50,6 +101,43 @@ const FUNCTIONS: Record<string, (...args: (number | string | null)[]) => number 
         const num = parseFloat(arg)
         if (!isNaN(num)) sum += num
       }
+    }
+    return sum
+  },
+
+  SUMIF: (range, criteria, sumRange) => {
+    const rangeArr = Array.isArray(range) ? range : [range]
+    const sumArr = sumRange ? (Array.isArray(sumRange) ? sumRange : [sumRange]) : rangeArr
+    const criteriaStr = String(criteria)
+
+    let sum = 0
+    for (let i = 0; i < rangeArr.length; i++) {
+      if (matchesCriteria(rangeArr[i], criteriaStr)) {
+        sum += toNum(sumArr[i] ?? rangeArr[i])
+      }
+    }
+    return sum
+  },
+
+  SUMIFS: (sumRange, ...criteriaRanges) => {
+    const sumArr = Array.isArray(sumRange) ? sumRange : [sumRange]
+    const pairs: Array<{ range: unknown[]; criteria: string }> = []
+
+    for (let i = 0; i < criteriaRanges.length; i += 2) {
+      const range = criteriaRanges[i]
+      const criteria = criteriaRanges[i + 1]
+      pairs.push({
+        range: Array.isArray(range) ? range : [range],
+        criteria: String(criteria),
+      })
+    }
+
+    let sum = 0
+    for (let i = 0; i < sumArr.length; i++) {
+      const allMatch = pairs.every(({ range, criteria }) =>
+        matchesCriteria(range[i], criteria)
+      )
+      if (allMatch) sum += toNum(sumArr[i])
     }
     return sum
   },
@@ -72,10 +160,80 @@ const FUNCTIONS: Record<string, (...args: (number | string | null)[]) => number 
     return count > 0 ? sum / count : 0
   },
 
+  AVERAGEIF: (range, criteria, avgRange) => {
+    const rangeArr = Array.isArray(range) ? range : [range]
+    const avgArr = avgRange ? (Array.isArray(avgRange) ? avgRange : [avgRange]) : rangeArr
+    const criteriaStr = String(criteria)
+
+    let sum = 0
+    let count = 0
+    for (let i = 0; i < rangeArr.length; i++) {
+      if (matchesCriteria(rangeArr[i], criteriaStr)) {
+        sum += toNum(avgArr[i] ?? rangeArr[i])
+        count++
+      }
+    }
+    return count > 0 ? sum / count : 0
+  },
+
   COUNT: (...args) => {
     let count = 0
     for (const arg of args.flat(Infinity)) {
+      if (typeof arg === 'number' || (typeof arg === 'string' && !isNaN(parseFloat(arg)))) {
+        count++
+      }
+    }
+    return count
+  },
+
+  COUNTA: (...args) => {
+    let count = 0
+    for (const arg of args.flat(Infinity)) {
       if (arg !== null && arg !== undefined && arg !== '') count++
+    }
+    return count
+  },
+
+  COUNTBLANK: (...args) => {
+    let count = 0
+    for (const arg of args.flat(Infinity)) {
+      if (arg === null || arg === undefined || arg === '') count++
+    }
+    return count
+  },
+
+  COUNTIF: (range, criteria) => {
+    const rangeArr = Array.isArray(range) ? range : [range]
+    const criteriaStr = String(criteria)
+
+    let count = 0
+    for (const val of rangeArr) {
+      if (matchesCriteria(val, criteriaStr)) count++
+    }
+    return count
+  },
+
+  COUNTIFS: (...criteriaRanges) => {
+    const pairs: Array<{ range: unknown[]; criteria: string }> = []
+
+    for (let i = 0; i < criteriaRanges.length; i += 2) {
+      const range = criteriaRanges[i]
+      const criteria = criteriaRanges[i + 1]
+      pairs.push({
+        range: Array.isArray(range) ? range : [range],
+        criteria: String(criteria),
+      })
+    }
+
+    if (pairs.length === 0) return 0
+
+    const len = pairs[0].range.length
+    let count = 0
+    for (let i = 0; i < len; i++) {
+      const allMatch = pairs.every(({ range, criteria }) =>
+        matchesCriteria(range[i], criteria)
+      )
+      if (allMatch) count++
     }
     return count
   },
@@ -99,80 +257,436 @@ const FUNCTIONS: Record<string, (...args: (number | string | null)[]) => number 
   },
 
   ROUND: (value, decimals = 0) => {
-    const num = typeof value === 'number' ? value : parseFloat(String(value))
-    const dec = typeof decimals === 'number' ? decimals : parseInt(String(decimals), 10)
-    if (isNaN(num)) return 0
-    const factor = Math.pow(10, dec || 0)
+    const num = toNum(value)
+    const dec = toNum(decimals)
+    const factor = Math.pow(10, dec)
     return Math.round(num * factor) / factor
   },
 
-  ABS: (value) => {
-    const num = typeof value === 'number' ? value : parseFloat(String(value))
-    return isNaN(num) ? 0 : Math.abs(num)
+  ROUNDUP: (value, decimals = 0) => {
+    const num = toNum(value)
+    const dec = toNum(decimals)
+    const factor = Math.pow(10, dec)
+    return Math.ceil(num * factor) / factor
   },
+
+  ROUNDDOWN: (value, decimals = 0) => {
+    const num = toNum(value)
+    const dec = toNum(decimals)
+    const factor = Math.pow(10, dec)
+    return Math.floor(num * factor) / factor
+  },
+
+  ABS: (value) => Math.abs(toNum(value)),
 
   SQRT: (value) => {
-    const num = typeof value === 'number' ? value : parseFloat(String(value))
-    return isNaN(num) || num < 0 ? 0 : Math.sqrt(num)
+    const num = toNum(value)
+    return num < 0 ? 0 : Math.sqrt(num)
   },
 
-  POWER: (base, exp) => {
-    const b = typeof base === 'number' ? base : parseFloat(String(base))
-    const e = typeof exp === 'number' ? exp : parseFloat(String(exp))
-    if (isNaN(b) || isNaN(e)) return 0
-    return Math.pow(b, e)
+  POWER: (base, exp) => Math.pow(toNum(base), toNum(exp)),
+
+  MOD: (number, divisor) => toNum(number) % toNum(divisor),
+
+  PRODUCT: (...args) => {
+    let product = 1
+    for (const arg of args.flat(Infinity)) {
+      const num = toNum(arg)
+      if (!isNaN(num)) product *= num
+    }
+    return product
   },
 
+  MEDIAN: (...args) => {
+    const nums = args.flat(Infinity)
+      .map(v => toNum(v))
+      .filter(n => !isNaN(n))
+      .sort((a, b) => a - b)
+
+    if (nums.length === 0) return 0
+    const mid = Math.floor(nums.length / 2)
+    return nums.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2
+  },
+
+  STDEV: (...args) => {
+    const nums = args.flat(Infinity).map(v => toNum(v)).filter(n => !isNaN(n))
+    if (nums.length < 2) return 0
+
+    const mean = nums.reduce((a, b) => a + b, 0) / nums.length
+    const squareDiffs = nums.map(n => Math.pow(n - mean, 2))
+    const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / (nums.length - 1)
+    return Math.sqrt(avgSquareDiff)
+  },
+
+  VAR: (...args) => {
+    const nums = args.flat(Infinity).map(v => toNum(v)).filter(n => !isNaN(n))
+    if (nums.length < 2) return 0
+
+    const mean = nums.reduce((a, b) => a + b, 0) / nums.length
+    const squareDiffs = nums.map(n => Math.pow(n - mean, 2))
+    return squareDiffs.reduce((a, b) => a + b, 0) / (nums.length - 1)
+  },
+
+  FLOOR: (value) => Math.floor(toNum(value)),
+
+  CEILING: (value) => Math.ceil(toNum(value)),
+
+  TRUNC: (value, decimals = 0) => {
+    const num = toNum(value)
+    const dec = toNum(decimals)
+    const factor = Math.pow(10, dec)
+    return Math.trunc(num * factor) / factor
+  },
+
+  LOG: (value, base = 10) => Math.log(toNum(value)) / Math.log(toNum(base)),
+
+  LN: (value) => Math.log(toNum(value)),
+
+  EXP: (value) => Math.exp(toNum(value)),
+
+  PI: () => Math.PI,
+
+  RAND: () => Math.random(),
+
+  RANDBETWEEN: (min, max) => {
+    const minN = Math.ceil(toNum(min))
+    const maxN = Math.floor(toNum(max))
+    return Math.floor(Math.random() * (maxN - minN + 1)) + minN
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // LOOKUP FUNCTIONS
+  // ═══════════════════════════════════════════════════════════
+  VLOOKUP: (searchKey, range, index, isSorted): FuncReturnValue => {
+    const rangeArr = Array.isArray(range) ? range : [[range]]
+    const colIndex = toNum(index) - 1
+    // Default to sorted=true if not specified, treat 0 or explicit FALSE as unsorted
+    const sorted = isSorted === undefined || isSorted === null || (isSorted !== 0 && String(isSorted).toUpperCase() !== 'FALSE')
+
+    // Assume range is a 2D array (rows of values)
+    // In our flat structure, we need to reshape
+    // For now, treat range as columns concatenated
+    const rows: unknown[][] = []
+    const numCols = Math.ceil(Math.sqrt(rangeArr.length)) || 1
+    for (let i = 0; i < rangeArr.length; i += numCols) {
+      rows.push(rangeArr.slice(i, i + numCols))
+    }
+
+    for (const row of rows) {
+      const firstCol = String(row[0] ?? '').toLowerCase()
+      const searchStr = String(searchKey ?? '').toLowerCase()
+
+      if (sorted) {
+        if (firstCol === searchStr || firstCol.startsWith(searchStr)) {
+          const result = row[colIndex]
+          if (result === undefined) return '#REF!'
+          return result as FuncReturnValue
+        }
+      } else {
+        if (firstCol === searchStr) {
+          const result = row[colIndex]
+          if (result === undefined) return '#REF!'
+          return result as FuncReturnValue
+        }
+      }
+    }
+    return '#N/A'
+  },
+
+  HLOOKUP: (searchKey, range, index, isSorted): FuncReturnValue => {
+    const rangeArr = Array.isArray(range) ? range : [[range]]
+    const rowIndex = toNum(index) - 1
+    // Default to sorted=true if not specified, treat 0 or explicit FALSE as unsorted
+    const sorted = isSorted === undefined || isSorted === null || (isSorted !== 0 && String(isSorted).toUpperCase() !== 'FALSE')
+
+    // Similar to VLOOKUP but search horizontally
+    const numCols = Math.ceil(Math.sqrt(rangeArr.length)) || 1
+    const cols: unknown[][] = []
+
+    for (let c = 0; c < numCols; c++) {
+      const col: unknown[] = []
+      for (let r = 0; r < rangeArr.length / numCols; r++) {
+        col.push(rangeArr[r * numCols + c])
+      }
+      cols.push(col)
+    }
+
+    for (const col of cols) {
+      const firstRow = String(col[0] ?? '').toLowerCase()
+      const searchStr = String(searchKey ?? '').toLowerCase()
+
+      if (sorted) {
+        if (firstRow === searchStr || firstRow.startsWith(searchStr)) {
+          const result = col[rowIndex]
+          if (result === undefined) return '#REF!'
+          return result as FuncReturnValue
+        }
+      } else {
+        if (firstRow === searchStr) {
+          const result = col[rowIndex]
+          if (result === undefined) return '#REF!'
+          return result as FuncReturnValue
+        }
+      }
+    }
+    return '#N/A'
+  },
+
+  INDEX: (range, rowNum, colNum = 1) => {
+    const rangeArr = Array.isArray(range) ? range : [range]
+    const row = toNum(rowNum) - 1
+    const col = toNum(colNum) - 1
+
+    // For 1D array
+    if (col === 0) {
+      return rangeArr[row] ?? '#REF!'
+    }
+
+    // For 2D array (estimate columns)
+    const numCols = Math.ceil(Math.sqrt(rangeArr.length)) || 1
+    const idx = row * numCols + col
+    return rangeArr[idx] ?? '#REF!'
+  },
+
+  MATCH: (searchKey, range, matchType = 1) => {
+    const rangeArr = Array.isArray(range) ? range : [range]
+    const type = toNum(matchType)
+    const searchStr = String(searchKey ?? '').toLowerCase()
+
+    for (let i = 0; i < rangeArr.length; i++) {
+      const val = String(rangeArr[i] ?? '').toLowerCase()
+
+      if (type === 0 && val === searchStr) {
+        return i + 1
+      }
+      if (type === 1 && val <= searchStr) {
+        // Find largest value <= searchKey
+        if (i === rangeArr.length - 1 || String(rangeArr[i + 1] ?? '').toLowerCase() > searchStr) {
+          return i + 1
+        }
+      }
+      if (type === -1 && val >= searchStr) {
+        // Find smallest value >= searchKey
+        if (i === rangeArr.length - 1 || String(rangeArr[i + 1] ?? '').toLowerCase() < searchStr) {
+          return i + 1
+        }
+      }
+    }
+    return '#N/A'
+  },
+
+  LOOKUP: (searchKey, searchRange, resultRange) => {
+    const searchArr = Array.isArray(searchRange) ? searchRange : [searchRange]
+    const resultArr = resultRange ? (Array.isArray(resultRange) ? resultRange : [resultRange]) : searchArr
+    const searchStr = String(searchKey ?? '').toLowerCase()
+
+    let lastMatch = -1
+    for (let i = 0; i < searchArr.length; i++) {
+      const val = String(searchArr[i] ?? '').toLowerCase()
+      if (val <= searchStr) lastMatch = i
+    }
+
+    return lastMatch >= 0 ? (resultArr[lastMatch] ?? '#N/A') : '#N/A'
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // LOGIC FUNCTIONS
+  // ═══════════════════════════════════════════════════════════
   IF: (condition, trueValue, falseValue) => {
     return condition ? (trueValue ?? 0) : (falseValue ?? 0)
   },
 
-  CONCAT: (...args) => {
-    return args.flat(Infinity).map(a => String(a ?? '')).join('')
+  IFS: (...args) => {
+    for (let i = 0; i < args.length; i += 2) {
+      if (args[i]) return args[i + 1] ?? 0
+    }
+    return '#N/A'
   },
 
-  LEN: (text) => {
-    return String(text ?? '').length
+  AND: (...args) => {
+    for (const arg of args.flat(Infinity)) {
+      if (!arg) return false
+    }
+    return true
   },
 
-  UPPER: (text) => {
-    return String(text ?? '').toUpperCase()
+  OR: (...args) => {
+    for (const arg of args.flat(Infinity)) {
+      if (arg) return true
+    }
+    return false
   },
 
-  LOWER: (text) => {
-    return String(text ?? '').toLowerCase()
+  NOT: (value) => !value,
+
+  XOR: (...args) => {
+    let trueCount = 0
+    for (const arg of args.flat(Infinity)) {
+      if (arg) trueCount++
+    }
+    return trueCount % 2 === 1
   },
 
-  TRIM: (text) => {
-    return String(text ?? '').trim()
+  IFERROR: (value, valueIfError) => {
+    const strVal = String(value ?? '')
+    if (strVal.startsWith('#')) return valueIfError ?? 0
+    return value ?? 0
   },
 
-  LEFT: (text, count = 1) => {
-    const str = String(text ?? '')
-    const n = typeof count === 'number' ? count : parseInt(String(count), 10)
-    return str.substring(0, n || 1)
+  IFNA: (value, valueIfNA) => {
+    return value === '#N/A' ? (valueIfNA ?? 0) : (value ?? 0)
   },
+
+  SWITCH: (expression, ...cases) => {
+    for (let i = 0; i < cases.length - 1; i += 2) {
+      if (String(expression) === String(cases[i])) {
+        return cases[i + 1] ?? 0
+      }
+    }
+    // Last value is default if odd number of cases
+    return cases.length % 2 === 1 ? cases[cases.length - 1] : '#N/A'
+  },
+
+  ISBLANK: (value) => value === null || value === undefined || value === '',
+  ISNUMBER: (value) => typeof value === 'number' || !isNaN(parseFloat(String(value))),
+  ISTEXT: (value) => typeof value === 'string' && isNaN(parseFloat(value)),
+  ISERROR: (value) => String(value ?? '').startsWith('#'),
+
+  // ═══════════════════════════════════════════════════════════
+  // TEXT FUNCTIONS
+  // ═══════════════════════════════════════════════════════════
+  CONCAT: (...args) => args.flat(Infinity).map(a => String(a ?? '')).join(''),
+
+  CONCATENATE: (...args) => args.flat(Infinity).map(a => String(a ?? '')).join(''),
+
+  TEXTJOIN: (delimiter, ignoreEmpty, ...args) => {
+    const delim = String(delimiter ?? '')
+    const values = args.flat(Infinity)
+    const filtered = ignoreEmpty
+      ? values.filter(v => v !== null && v !== undefined && v !== '')
+      : values
+    return filtered.map(v => String(v ?? '')).join(delim)
+  },
+
+  LEN: (text) => String(text ?? '').length,
+
+  UPPER: (text) => String(text ?? '').toUpperCase(),
+
+  LOWER: (text) => String(text ?? '').toLowerCase(),
+
+  PROPER: (text) => {
+    return String(text ?? '').replace(/\w\S*/g, txt =>
+      txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+    )
+  },
+
+  TRIM: (text) => String(text ?? '').trim(),
+
+  CLEAN: (text) => String(text ?? '').replace(/[\x00-\x1F\x7F]/g, ''),
+
+  LEFT: (text, count = 1) => String(text ?? '').substring(0, toNum(count) || 1),
 
   RIGHT: (text, count = 1) => {
     const str = String(text ?? '')
-    const n = typeof count === 'number' ? count : parseInt(String(count), 10)
-    return str.substring(str.length - (n || 1))
+    const n = toNum(count) || 1
+    return str.substring(str.length - n)
   },
 
   MID: (text, start, count) => {
     const str = String(text ?? '')
-    const s = (typeof start === 'number' ? start : parseInt(String(start), 10)) - 1
-    const c = typeof count === 'number' ? count : parseInt(String(count), 10)
+    const s = toNum(start) - 1
+    const c = toNum(count)
     return str.substring(s, s + c)
   },
 
+  SUBSTITUTE: (text, oldText, newText, instance) => {
+    const str = String(text ?? '')
+    const old = String(oldText ?? '')
+    const newStr = String(newText ?? '')
+
+    if (!instance) return str.split(old).join(newStr)
+
+    const n = toNum(instance)
+    let count = 0
+    return str.replace(new RegExp(old.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), (match) => {
+      count++
+      return count === n ? newStr : match
+    })
+  },
+
+  REPLACE: (text, start, count, newText) => {
+    const str = String(text ?? '')
+    const s = toNum(start) - 1
+    const c = toNum(count)
+    return str.substring(0, s) + String(newText ?? '') + str.substring(s + c)
+  },
+
+  FIND: (findText, withinText, startNum = 1) => {
+    const find = String(findText ?? '')
+    const within = String(withinText ?? '')
+    const start = toNum(startNum) - 1
+    const result = within.indexOf(find, start)
+    return result >= 0 ? result + 1 : '#VALUE!'
+  },
+
+  SEARCH: (findText, withinText, startNum = 1) => {
+    const find = String(findText ?? '').toLowerCase()
+    const within = String(withinText ?? '').toLowerCase()
+    const start = toNum(startNum) - 1
+    const result = within.indexOf(find, start)
+    return result >= 0 ? result + 1 : '#VALUE!'
+  },
+
+  REPT: (text, times) => String(text ?? '').repeat(Math.max(0, toNum(times))),
+
+  CHAR: (number) => String.fromCharCode(toNum(number)),
+
+  CODE: (text) => String(text ?? '').charCodeAt(0) || 0,
+
+  TEXT: (value, format) => {
+    // Basic text formatting
+    const num = toNum(value)
+    const fmt = String(format ?? '')
+
+    if (fmt.includes('%')) {
+      const decimals = (fmt.match(/0/g) || []).length - 1
+      return (num * 100).toFixed(Math.max(0, decimals)) + '%'
+    }
+    if (fmt.includes('$')) {
+      return '$' + num.toFixed(2)
+    }
+    return String(value ?? '')
+  },
+
+  VALUE: (text) => {
+    const num = parseFloat(String(text ?? '').replace(/[$,]/g, ''))
+    return isNaN(num) ? '#VALUE!' : num
+  },
+
+  SPLIT: (text, delimiter) => {
+    return String(text ?? '').split(String(delimiter ?? ','))[0] || ''
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // DATE & TIME FUNCTIONS
+  // ═══════════════════════════════════════════════════════════
   NOW: () => {
-    return Date.now()
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   },
 
   TODAY: () => {
     const today = new Date()
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  },
+
+  DATE: (year, month, day) => {
+    const d = new Date(toNum(year), toNum(month) - 1, toNum(day))
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  },
+
+  TIME: (hour, minute, second) => {
+    return `${String(toNum(hour)).padStart(2, '0')}:${String(toNum(minute)).padStart(2, '0')}:${String(toNum(second)).padStart(2, '0')}`
   },
 
   YEAR: (date) => {
@@ -190,14 +704,82 @@ const FUNCTIONS: Record<string, (...args: (number | string | null)[]) => number 
     return isNaN(d.getTime()) ? 0 : d.getDate()
   },
 
-  FLOOR: (value) => {
-    const num = typeof value === 'number' ? value : parseFloat(String(value))
-    return isNaN(num) ? 0 : Math.floor(num)
+  HOUR: (time) => {
+    const d = new Date(String(time))
+    return isNaN(d.getTime()) ? 0 : d.getHours()
   },
 
-  CEILING: (value) => {
-    const num = typeof value === 'number' ? value : parseFloat(String(value))
-    return isNaN(num) ? 0 : Math.ceil(num)
+  MINUTE: (time) => {
+    const d = new Date(String(time))
+    return isNaN(d.getTime()) ? 0 : d.getMinutes()
+  },
+
+  SECOND: (time) => {
+    const d = new Date(String(time))
+    return isNaN(d.getTime()) ? 0 : d.getSeconds()
+  },
+
+  WEEKDAY: (date, type = 1) => {
+    const d = new Date(String(date))
+    if (isNaN(d.getTime())) return 0
+    const day = d.getDay()
+    const t = toNum(type)
+    if (t === 1) return day + 1 // Sunday = 1
+    if (t === 2) return day === 0 ? 7 : day // Monday = 1
+    if (t === 3) return day === 0 ? 6 : day - 1 // Monday = 0
+    return day + 1
+  },
+
+  WEEKNUM: (date, type = 1) => {
+    const d = new Date(String(date))
+    if (isNaN(d.getTime())) return 0
+    const start = new Date(d.getFullYear(), 0, 1)
+    const diff = d.getTime() - start.getTime()
+    const oneWeek = 7 * 24 * 60 * 60 * 1000
+    return Math.ceil((diff / oneWeek) + 1)
+  },
+
+  DATEDIF: (startDate, endDate, unit) => {
+    const start = new Date(String(startDate))
+    const end = new Date(String(endDate))
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return '#VALUE!'
+
+    const diffMs = end.getTime() - start.getTime()
+    const u = String(unit ?? 'D').toUpperCase()
+
+    if (u === 'D') return Math.floor(diffMs / (24 * 60 * 60 * 1000))
+    if (u === 'M') return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
+    if (u === 'Y') return end.getFullYear() - start.getFullYear()
+    return '#VALUE!'
+  },
+
+  EDATE: (startDate, months) => {
+    const d = new Date(String(startDate))
+    if (isNaN(d.getTime())) return '#VALUE!'
+    d.setMonth(d.getMonth() + toNum(months))
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  },
+
+  EOMONTH: (startDate, months) => {
+    const d = new Date(String(startDate))
+    if (isNaN(d.getTime())) return '#VALUE!'
+    d.setMonth(d.getMonth() + toNum(months) + 1, 0)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  },
+
+  NETWORKDAYS: (startDate, endDate) => {
+    const start = new Date(String(startDate))
+    const end = new Date(String(endDate))
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return '#VALUE!'
+
+    let count = 0
+    const current = new Date(start)
+    while (current <= end) {
+      const day = current.getDay()
+      if (day !== 0 && day !== 6) count++
+      current.setDate(current.getDate() + 1)
+    }
+    return count
   },
 }
 
@@ -321,7 +903,7 @@ export function evaluateFormula(formula: string, cells: Record<string, Cell>): F
       const argsStr = funcMatch[2]
 
       // Parse arguments (handling nested functions and ranges)
-      const args: (number | string | null | (number | string | null)[])[] = []
+      const args: FuncReturnValue[] = []
       let depth = 0
       let current = ''
 
@@ -363,7 +945,7 @@ export function evaluateFormula(formula: string, cells: Record<string, Cell>): F
 }
 
 // Parse a single argument (could be a range, cell ref, or literal)
-function parseArgument(arg: string, cells: Record<string, Cell>): number | string | null | (number | string | null)[] {
+function parseArgument(arg: string, cells: Record<string, Cell>): FuncReturnValue {
   // Check for range like A1:B3
   const rangeMatch = arg.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/i)
   if (rangeMatch) {

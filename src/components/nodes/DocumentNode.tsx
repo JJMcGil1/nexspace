@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react'
-import { NodeProps, useReactFlow } from '@xyflow/react'
+import { NodeProps } from '@xyflow/react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -9,6 +9,7 @@ import { IoMove, IoDocumentText } from 'react-icons/io5'
 import { LuCopy, LuMaximize2, LuTrash2 } from 'react-icons/lu'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useDeleteConfirmation } from '../../contexts/DeleteConfirmationContext'
+import { useCanvas } from '../../contexts/CanvasContext'
 import './DocumentNode.css'
 
 interface DocumentNodeData {
@@ -24,7 +25,7 @@ type ResizeDirection = 'left' | 'right' | 'bottom' | 'bottom-left' | 'bottom-rig
 const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const { setNodes, getNodes } = useReactFlow()
+  const { updateNode, deleteNode: deleteCanvasNode, addNode, nodes: canvasNodes, setNodes: setCanvasNodes } = useCanvas()
   const { showDeleteConfirmation } = useDeleteConfirmation()
   const nodeData = data as unknown as DocumentNodeData
 
@@ -42,15 +43,11 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Save content to node data (debounced to prevent focus loss)
+  // Uses useCanvas().updateNode to ensure persistence to electron-store
   const saveContent = useCallback((html: string) => {
-    setNodes((nodes) =>
-      nodes.map((node) =>
-        node.id === id
-          ? { ...node, data: { ...node.data, content: html } }
-          : node
-      )
-    )
-  }, [id, setNodes])
+    console.log('[DocumentNode] Saving content for node:', id)
+    updateNode(id, { content: html })
+  }, [id, updateNode])
 
   const editor = useEditor({
     extensions: [
@@ -102,18 +99,14 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   }, [])
 
   // Update title in node data
+  // Uses useCanvas().updateNode to ensure persistence to electron-store
   const handleTitleChange = useCallback(
     (newTitle: string) => {
       setTitle(newTitle)
-      setNodes((nodes) =>
-        nodes.map((node) =>
-          node.id === id
-            ? { ...node, data: { ...node.data, title: newTitle } }
-            : node
-        )
-      )
+      console.log('[DocumentNode] Saving title for node:', id, newTitle)
+      updateNode(id, { title: newTitle })
     },
-    [id, setNodes]
+    [id, updateNode]
   )
 
   const handleTitleBlur = useCallback(() => {
@@ -145,25 +138,26 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   }, [nodeData.title])
 
   // Handle duplicate node
+  // Uses useCanvas().addNode to ensure persistence to electron-store
   const handleDuplicate = useCallback(() => {
-    const nodes = getNodes()
-    const currentNode = nodes.find((n) => n.id === id)
+    const currentNode = canvasNodes.find((n) => n.id === id)
     if (!currentNode) return
 
     const newNode = {
-      ...currentNode,
-      id: `node-${Date.now()}`,
+      id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      type: currentNode.type,
       position: {
         x: currentNode.position.x + 40,
         y: currentNode.position.y + 40,
       },
       data: { ...currentNode.data },
-      selected: false,
     }
-    setNodes((nds) => [...nds, newNode])
-  }, [id, getNodes, setNodes])
+    console.log('[DocumentNode] Duplicating node:', id, 'as', newNode.id)
+    addNode(newNode)
+  }, [id, canvasNodes, addNode])
 
   // Handle delete node
+  // Uses useCanvas().deleteNode to ensure persistence to electron-store
   const handleDelete = useCallback(() => {
     showDeleteConfirmation({
       title: 'Delete Document',
@@ -171,10 +165,11 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       itemName: title,
       confirmLabel: 'Delete Document',
       onConfirm: () => {
-        setNodes((nds) => nds.filter((node) => node.id !== id))
+        console.log('[DocumentNode] Deleting node:', id)
+        deleteCanvasNode(id)
       },
     })
-  }, [id, setNodes, showDeleteConfirmation, title])
+  }, [id, deleteCanvasNode, showDeleteConfirmation, title])
 
   // Handle fullscreen (dispatch custom event for FlowCanvas to handle)
   const handleFullscreen = useCallback(() => {
@@ -197,9 +192,8 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     e.preventDefault()
     e.stopPropagation()
 
-    // Get current node position
-    const nodes = getNodes()
-    const currentNode = nodes.find((n) => n.id === id)
+    // Get current node position from canvas nodes
+    const currentNode = canvasNodes.find((n) => n.id === id)
     if (!currentNode) return
 
     setIsResizing(true)
@@ -207,7 +201,7 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     resizeStartSize.current = { width, height }
     resizeStartPos.current = { x: currentNode.position.x, y: currentNode.position.y }
     resizeDirection.current = direction
-  }, [width, height, getNodes, id])
+  }, [width, height, canvasNodes, id])
 
   const handleResizeMove = useCallback((e: MouseEvent) => {
     if (!isResizing) return
@@ -232,7 +226,8 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       const newX = resizeStartPos.current.x + actualWidthDelta
 
       setWidth(newWidth)
-      setNodes((nodes) =>
+      // Use CanvasContext's setNodes for position updates to ensure persistence
+      setCanvasNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
             ? { ...node, position: { ...node.position, x: newX } }
@@ -246,21 +241,16 @@ const DocumentNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       const newHeight = Math.max(150, Math.min(800, resizeStartSize.current.height + deltaY))
       setHeight(newHeight)
     }
-  }, [isResizing, id, setNodes])
+  }, [isResizing, id, setCanvasNodes])
 
   const handleResizeEnd = useCallback(() => {
     if (!isResizing) return
     setIsResizing(false)
 
-    // Save dimensions to node data
-    setNodes((nodes) =>
-      nodes.map((node) =>
-        node.id === id
-          ? { ...node, data: { ...node.data, width, height } }
-          : node
-      )
-    )
-  }, [isResizing, id, setNodes, width, height])
+    // Save dimensions to node data using CanvasContext for persistence
+    console.log('[DocumentNode] Saving dimensions for node:', id, { width, height })
+    updateNode(id, { width, height })
+  }, [isResizing, id, updateNode, width, height])
 
   // Attach global mouse events for resize
   useEffect(() => {

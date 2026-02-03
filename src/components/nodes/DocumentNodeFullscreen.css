@@ -29,6 +29,21 @@
   }
 }
 
+/* Exit animation - fade out */
+@keyframes fullscreen-disappear {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Closing state animation */
+.document-fullscreen--closing {
+  animation: fullscreen-disappear 0.25s ease-out forwards;
+}
+
 
 /* ── Container (replaces modal) ──────────────────────────── */
 .document-fullscreen__modal {
@@ -52,12 +67,29 @@
 @keyframes fullscreen-content-appear {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
+}
+
+/* Exit animation for content */
+@keyframes fullscreen-content-disappear {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+/* Closing state for content */
+.document-fullscreen--closing .document-fullscreen__modal {
+  animation: fullscreen-content-disappear 0.25s ease-out forwards;
 }
 
 /* ── Header ────────────────────────────────────────────── */

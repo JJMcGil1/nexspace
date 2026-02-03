@@ -1,0 +1,838 @@
+/* ═══════════════════════════════════════════════════════════
+   ConditionalFormattingDialog - Conditional formatting dialog styles
+   ═══════════════════════════════════════════════════════════ */
+
+.cf-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  animation: cfDialogFadeIn 0.15s ease-out;
+}
+
+@keyframes cfDialogFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.cf-dialog {
+  width: 460px;
+  max-width: 95vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: cfDialogSlideIn 0.2s ease-out;
+  overflow: hidden;
+}
+
+@keyframes cfDialogSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.cf-dialog--dark .cf-dialog {
+  background: #1c1c20;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cf-dialog--light .cf-dialog {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Header */
+.cf-dialog__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cf-dialog--light .cf-dialog__header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.cf-dialog__header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #8B5CF6, #EC4899);
+  color: #fff;
+}
+
+.cf-dialog__title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cf-dialog--dark .cf-dialog__title {
+  color: #f5f5f5;
+}
+
+.cf-dialog--light .cf-dialog__title {
+  color: #1a1a1a;
+}
+
+.cf-dialog__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cf-dialog--dark .cf-dialog__close {
+  color: #888;
+}
+
+.cf-dialog--light .cf-dialog__close {
+  color: #666;
+}
+
+.cf-dialog__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cf-dialog--light .cf-dialog__close:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Tabs */
+.cf-dialog__tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cf-dialog--light .cf-dialog__tabs {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.cf-dialog__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cf-dialog--dark .cf-dialog__tab {
+  color: #888;
+}
+
+.cf-dialog--light .cf-dialog__tab {
+  color: #666;
+}
+
+.cf-dialog__tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cf-dialog--light .cf-dialog__tab:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.cf-dialog__tab.active {
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.cf-dialog--dark .cf-dialog__tab.active {
+  color: #A78BFA;
+}
+
+.cf-dialog--light .cf-dialog__tab.active {
+  color: #7C3AED;
+}
+
+/* Content */
+.cf-dialog__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+/* Empty state */
+.cf-dialog__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.cf-dialog--dark .cf-dialog__empty {
+  color: #666;
+}
+
+.cf-dialog--light .cf-dialog__empty {
+  color: #999;
+}
+
+.cf-dialog__empty p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Rules list */
+.cf-dialog__rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Rule item */
+.cf-dialog__rule {
+  border-radius: 8px;
+  overflow: hidden;
+  transition: background-color 0.15s ease;
+}
+
+.cf-dialog--dark .cf-dialog__rule {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cf-dialog--light .cf-dialog__rule {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.cf-dialog__rule:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cf-dialog--light .cf-dialog__rule:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.cf-dialog__rule-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.cf-dialog__rule-drag {
+  display: flex;
+  align-items: center;
+  color: #666;
+  cursor: grab;
+}
+
+.cf-dialog__rule-preview {
+  flex-shrink: 0;
+  width: 40px;
+  height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cf-dialog__rule-gradient {
+  width: 100%;
+  height: 100%;
+}
+
+.cf-dialog__rule-bar {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cf-dialog--light .cf-dialog__rule-bar {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.cf-dialog__rule-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.cf-dialog__rule-style {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.cf-dialog__rule-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cf-dialog__rule-desc {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cf-dialog--dark .cf-dialog__rule-desc {
+  color: #e0e0e0;
+}
+
+.cf-dialog--light .cf-dialog__rule-desc {
+  color: #1a1a1a;
+}
+
+.cf-dialog__rule-range {
+  font-size: 11px;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.cf-dialog--dark .cf-dialog__rule-range {
+  color: #888;
+}
+
+.cf-dialog--light .cf-dialog__rule-range {
+  color: #666;
+}
+
+.cf-dialog__rule-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.cf-dialog__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cf-dialog--dark .cf-dialog__icon-btn {
+  color: #888;
+}
+
+.cf-dialog--light .cf-dialog__icon-btn {
+  color: #666;
+}
+
+.cf-dialog__icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cf-dialog--light .cf-dialog__icon-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.cf-dialog__icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.cf-dialog__icon-btn--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+}
+
+.cf-dialog__rule-details {
+  padding: 0 12px 12px 64px;
+}
+
+.cf-dialog__rule-detail-text {
+  margin: 0;
+  font-size: 12px;
+}
+
+.cf-dialog--dark .cf-dialog__rule-detail-text {
+  color: #888;
+}
+
+.cf-dialog--light .cf-dialog__rule-detail-text {
+  color: #666;
+}
+
+/* New rule form */
+.cf-dialog__new-rule {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cf-dialog__selection-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+}
+
+.cf-dialog--dark .cf-dialog__selection-info {
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.cf-dialog--light .cf-dialog__selection-info {
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+}
+
+.cf-dialog__selection-range {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.cf-dialog--dark .cf-dialog__selection-range {
+  color: #A78BFA;
+}
+
+.cf-dialog--light .cf-dialog__selection-range {
+  color: #7C3AED;
+}
+
+/* Form fields */
+.cf-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cf-dialog__field-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.cf-dialog__label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.cf-dialog--dark .cf-dialog__label {
+  color: #888;
+}
+
+.cf-dialog--light .cf-dialog__label {
+  color: #666;
+}
+
+.cf-dialog__select,
+.cf-dialog__input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cf-dialog--dark .cf-dialog__select,
+.cf-dialog--dark .cf-dialog__input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+}
+
+.cf-dialog--light .cf-dialog__select,
+.cf-dialog--light .cf-dialog__input {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #1a1a1a;
+}
+
+.cf-dialog__select:focus,
+.cf-dialog__input:focus {
+  outline: none;
+  border-color: #8B5CF6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.cf-dialog__input--small {
+  width: 80px;
+}
+
+.cf-dialog__input::placeholder {
+  color: #666;
+}
+
+.cf-dialog__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cf-dialog--dark .cf-dialog__checkbox {
+  color: #c0c0c0;
+}
+
+.cf-dialog--light .cf-dialog__checkbox {
+  color: #444;
+}
+
+.cf-dialog__checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #8B5CF6;
+}
+
+/* Style section */
+.cf-dialog__style-section,
+.cf-dialog__colorscale-section,
+.cf-dialog__databar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.cf-dialog--dark .cf-dialog__style-section,
+.cf-dialog--dark .cf-dialog__colorscale-section,
+.cf-dialog--dark .cf-dialog__databar-section {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cf-dialog--light .cf-dialog__style-section,
+.cf-dialog--light .cf-dialog__colorscale-section,
+.cf-dialog--light .cf-dialog__databar-section {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.cf-dialog__section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cf-dialog--dark .cf-dialog__section-header {
+  color: #c0c0c0;
+}
+
+.cf-dialog--light .cf-dialog__section-header {
+  color: #444;
+}
+
+.cf-dialog__style-preview {
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.cf-dialog--dark .cf-dialog__style-preview {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.cf-dialog--light .cf-dialog__style-preview {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.cf-dialog__style-sample {
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.cf-dialog__style-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cf-dialog__style-toggles {
+  display: flex;
+  gap: 8px;
+}
+
+.cf-dialog__style-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cf-dialog--dark .cf-dialog__style-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #c0c0c0;
+}
+
+.cf-dialog--light .cf-dialog__style-btn {
+  background: rgba(0, 0, 0, 0.06);
+  color: #444;
+}
+
+.cf-dialog__style-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cf-dialog--light .cf-dialog__style-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.cf-dialog__style-btn.active {
+  background: #8B5CF6;
+  color: #fff;
+}
+
+/* Color picker */
+.cf-dialog__color-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cf-dialog__color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cf-dialog__color-preview {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.cf-dialog--light .cf-dialog__color-preview {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.cf-dialog__color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+
+.cf-dialog__color-swatch {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.cf-dialog__color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.cf-dialog__color-swatch.active {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #8B5CF6;
+}
+
+/* Color scale preview */
+.cf-dialog__colorscale-preview,
+.cf-dialog__databar-preview {
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.cf-dialog--dark .cf-dialog__colorscale-preview,
+.cf-dialog--dark .cf-dialog__databar-preview {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.cf-dialog--light .cf-dialog__colorscale-preview,
+.cf-dialog--light .cf-dialog__databar-preview {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.cf-dialog__gradient-preview {
+  height: 32px;
+  border-radius: 4px;
+}
+
+.cf-dialog__colorscale-options,
+.cf-dialog__databar-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Data bar preview */
+.cf-dialog__bar-preview {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.cf-dialog--dark .cf-dialog__bar-preview {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e0e0e0;
+}
+
+.cf-dialog--light .cf-dialog__bar-preview {
+  background: rgba(0, 0, 0, 0.04);
+  color: #1a1a1a;
+}
+
+.cf-dialog__bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 4px;
+  opacity: 0.5;
+}
+
+.cf-dialog__bar-preview {
+  position: relative;
+}
+
+.cf-dialog__bar-preview span {
+  position: relative;
+  z-index: 1;
+}
+
+/* Actions */
+.cf-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 8px;
+}
+
+.cf-dialog--light .cf-dialog__actions {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+.cf-dialog__btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cf-dialog__btn--primary {
+  background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+  color: #fff;
+}
+
+.cf-dialog__btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #9B7CF6, #8B5CF6);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.cf-dialog__btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cf-dialog__btn--secondary {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cf-dialog--dark .cf-dialog__btn--secondary {
+  color: #c0c0c0;
+}
+
+.cf-dialog--light .cf-dialog__btn--secondary {
+  background: rgba(0, 0, 0, 0.06);
+  color: #444;
+}
+
+.cf-dialog__btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cf-dialog--light .cf-dialog__btn--secondary:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* Scrollbar styling */
+.cf-dialog__content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cf-dialog__content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cf-dialog--dark .cf-dialog__content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.cf-dialog--light .cf-dialog__content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+.cf-dialog__content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.cf-dialog--light .cf-dialog__content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}

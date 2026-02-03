@@ -10,7 +10,8 @@ export interface CellStyle {
   verticalAlign?: 'top' | 'middle' | 'bottom'
   color?: string
   backgroundColor?: string
-  fontSize?: number
+  fontSize?: string // e.g., '14px'
+  fontFamily?: string // e.g., 'Arial, sans-serif'
 }
 
 export interface CellFormat {
@@ -63,6 +64,12 @@ export interface SpreadsheetNodeData {
   // Frozen panes
   frozenRows?: number
   frozenCols?: number
+  // Conditional formatting rules
+  conditionalFormatRules?: ConditionalFormatRule[]
+  // Data validation rules
+  dataValidationRules?: DataValidationRule[]
+  // Cell comments - keyed by "row,col"
+  cellComments?: Record<string, CellComment>
   // Node dimensions
   width?: number
   height?: number
@@ -85,6 +92,158 @@ export interface UndoAction {
   before: Partial<SpreadsheetNodeData>
   after: Partial<SpreadsheetNodeData>
   timestamp: number
+}
+
+// ═══════════════════════════════════════════════════════════
+// Conditional Formatting Types
+// ═══════════════════════════════════════════════════════════
+
+export type ConditionalFormatType =
+  | 'greaterThan'
+  | 'lessThan'
+  | 'greaterThanOrEqual'
+  | 'lessThanOrEqual'
+  | 'equals'
+  | 'notEquals'
+  | 'between'
+  | 'notBetween'
+  | 'textContains'
+  | 'textNotContains'
+  | 'textStartsWith'
+  | 'textEndsWith'
+  | 'duplicate'
+  | 'unique'
+  | 'blank'
+  | 'notBlank'
+  | 'top10'
+  | 'bottom10'
+  | 'aboveAverage'
+  | 'belowAverage'
+  | 'colorScale'
+  | 'dataBar'
+  | 'iconSet'
+  | 'customFormula'
+
+export interface ColorScaleConfig {
+  minColor: string
+  midColor?: string
+  maxColor: string
+  minType: 'min' | 'number' | 'percent' | 'percentile'
+  midType?: 'number' | 'percent' | 'percentile'
+  maxType: 'max' | 'number' | 'percent' | 'percentile'
+  minValue?: number
+  midValue?: number
+  maxValue?: number
+}
+
+export interface DataBarConfig {
+  color: string
+  showValue: boolean
+  minType: 'min' | 'number' | 'percent'
+  maxType: 'max' | 'number' | 'percent'
+  minValue?: number
+  maxValue?: number
+}
+
+export interface IconSetConfig {
+  iconSet: '3arrows' | '3arrowsGray' | '3flags' | '3trafficLights' | '3symbols' | '4arrows' | '4ratings' | '5arrows' | '5ratings'
+  reverseOrder?: boolean
+  showValue?: boolean
+  thresholds: number[] // Percentages for icon boundaries
+}
+
+export interface ConditionalFormatRule {
+  id: string
+  ranges: CellRange[] // Multiple ranges can share a rule
+  type: ConditionalFormatType
+  // For comparison rules
+  value?: string | number
+  value2?: string | number // For 'between' rules
+  // Style to apply (for non-color-scale rules)
+  style?: CellStyle
+  // Special configs
+  colorScale?: ColorScaleConfig
+  dataBar?: DataBarConfig
+  iconSet?: IconSetConfig
+  // For custom formula
+  formula?: string
+  // Top/bottom N
+  rank?: number
+  percent?: boolean
+  // Priority (lower = higher priority)
+  priority: number
+  // Stop if true (don't apply lower priority rules)
+  stopIfTrue?: boolean
+}
+
+// ═══════════════════════════════════════════════════════════
+// Data Validation Types
+// ═══════════════════════════════════════════════════════════
+
+export type DataValidationType =
+  | 'list' // Dropdown list
+  | 'number' // Number range
+  | 'integer' // Whole numbers only
+  | 'decimal' // Decimal numbers
+  | 'date' // Date range
+  | 'textLength' // Text length restriction
+  | 'custom' // Custom formula
+
+export type DataValidationOperator =
+  | 'between'
+  | 'notBetween'
+  | 'equalTo'
+  | 'notEqualTo'
+  | 'greaterThan'
+  | 'lessThan'
+  | 'greaterThanOrEqual'
+  | 'lessThanOrEqual'
+
+export interface DataValidationRule {
+  id: string
+  ranges: CellRange[] // Cells this validation applies to
+  type: DataValidationType
+  // For list type
+  listItems?: string[] // Dropdown options
+  listSource?: string // Cell range reference for list items e.g., "A1:A10"
+  // For number/date/textLength types
+  operator?: DataValidationOperator
+  value1?: number | string // First value (min, equal to, etc.)
+  value2?: number | string // Second value (for between)
+  // For custom type
+  formula?: string
+  // UI options
+  showDropdown?: boolean // Show dropdown arrow for list type (default: true)
+  allowBlank?: boolean // Allow empty cells (default: true)
+  showInputMessage?: boolean // Show help message when cell selected
+  inputTitle?: string
+  inputMessage?: string
+  // Error handling
+  showErrorAlert?: boolean // Show error when invalid (default: true)
+  errorStyle?: 'stop' | 'warning' | 'info' // Error severity
+  errorTitle?: string
+  errorMessage?: string
+}
+
+// ═══════════════════════════════════════════════════════════
+// Cell Comment Types
+// ═══════════════════════════════════════════════════════════
+
+export interface CellComment {
+  id: string
+  author: string
+  text: string
+  createdAt: number // Unix timestamp
+  updatedAt?: number // Unix timestamp
+  resolved?: boolean
+  replies?: CellCommentReply[]
+}
+
+export interface CellCommentReply {
+  id: string
+  author: string
+  text: string
+  createdAt: number
 }
 
 // Helper functions

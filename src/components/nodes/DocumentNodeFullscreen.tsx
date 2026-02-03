@@ -26,6 +26,17 @@ const DocumentNodeFullscreen: React.FC<DocumentNodeFullscreenProps> = ({
   const isDark = theme === 'dark'
   const [title, setTitle] = useState(initialTitle || 'Untitled')
   const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
+
+  // Handle close with animation
+  const handleClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    // Wait for animation to complete before calling onClose
+    setTimeout(() => {
+      onClose()
+    }, 250) // Match the animation duration
+  }, [isClosing, onClose])
 
   const editor = useEditor({
     extensions: [
@@ -88,15 +99,15 @@ const DocumentNodeFullscreen: React.FC<DocumentNodeFullscreenProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !isEditingTitle) {
-        onClose()
+        handleClose()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, isEditingTitle])
+  }, [handleClose, isEditingTitle])
 
   return (
-    <div className={`document-fullscreen ${isDark ? 'document-fullscreen--dark' : 'document-fullscreen--light'}`}>
+    <div className={`document-fullscreen ${isDark ? 'document-fullscreen--dark' : 'document-fullscreen--light'} ${isClosing ? 'document-fullscreen--closing' : ''}`}>
       {/* Content container - fills the canvas area */}
       <div className="document-fullscreen__modal">
         {/* Header */}
@@ -143,7 +154,7 @@ const DocumentNodeFullscreen: React.FC<DocumentNodeFullscreenProps> = ({
             <span className="document-fullscreen__hint">Press ESC to close</span>
             <button
               className="document-fullscreen__close-btn"
-              onClick={onClose}
+              onClick={handleClose}
               title="Close (ESC)"
             >
               <svg width="20" height="20" viewBox="0 0 16 16" fill="none">

@@ -117,7 +117,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
   const [attachedImages, setAttachedImages] = useState<{ id: string; file: File; preview: string }[]>([])
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
+  const [composerHeight, setComposerHeight] = useState<number | null>(null)
+  const [isDraggingComposer, setIsDraggingComposer] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const composerContainerRef = useRef<HTMLDivElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
   const historyRef = useRef<HTMLDivElement>(null)
 
@@ -201,13 +204,57 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
     scrollToBottom()
   }, [messages, scrollToBottom])
 
-  // Auto-resize textarea
+  // Auto-resize textarea based on content
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = '24px'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`
+    // Don't auto-resize while user is dragging - let drag control height
+    if (isDraggingComposer) return
+
+    const textarea = textareaRef.current
+    if (textarea) {
+      // Reset height to auto to get accurate scrollHeight measurement
+      textarea.style.height = 'auto'
+      const contentHeight = textarea.scrollHeight
+
+      // If user has manually set a height, use that as minimum
+      const minHeight = composerHeight || 24
+      const maxHeight = 400
+      const newHeight = Math.min(Math.max(contentHeight, minHeight), maxHeight)
+
+      textarea.style.height = `${newHeight}px`
+
+      // Enable scrolling if content exceeds max height
+      textarea.style.overflowY = contentHeight > maxHeight ? 'auto' : 'hidden'
     }
-  }, [input])
+  }, [input, composerHeight, isDraggingComposer])
+
+  // Handle composer drag resize
+  const handleComposerDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const startHeight = composerContainerRef.current?.offsetHeight || 100
+
+    // Lock in current height immediately to prevent any null-to-value jump
+    setComposerHeight(startHeight)
+    setIsDraggingComposer(true)
+
+    const startY = e.clientY
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = startY - moveEvent.clientY
+      const newHeight = Math.max(60, Math.min(startHeight + deltaY, 400))
+      setComposerHeight(newHeight)
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingComposer(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -718,8 +765,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, isFullWidth, width, isRes
       </div>
 
       {/* Composer */}
-      <div className="chat-composer">
-        <div className="chat-composer__container">
+      <div className={`chat-composer ${isDraggingComposer ? 'chat-composer--dragging' : ''}`}>
+        <div
+          ref={composerContainerRef}
+          className="chat-composer__container"
+          style={composerHeight ? { minHeight: `${composerHeight}px` } : undefined}
+        >
+          {/* Drag handle - positioned on top border */}
+          <div
+            className="chat-composer__drag-handle"
+            onMouseDown={handleComposerDragStart}
+            title="Drag to resize"
+          >
+            <div className="chat-composer__drag-handle-bar" />
+          </div>
+
           {/* Hidden file input */}
           <input
             ref={fileInputRef}
