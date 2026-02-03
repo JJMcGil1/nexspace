@@ -2,7 +2,7 @@ import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react'
 import { NodeProps, useReactFlow } from '@xyflow/react'
 import { IoMove } from 'react-icons/io5'
 import { LuCopy, LuMaximize2, LuTrash2 } from 'react-icons/lu'
-import { BsTable } from 'react-icons/bs'
+import { BsFileSpreadsheetFill } from 'react-icons/bs'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { useDeleteConfirmation } from '../../../contexts/DeleteConfirmationContext'
 import { useSpreadsheet } from './useSpreadsheet'
@@ -693,7 +693,7 @@ const SpreadsheetNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         {/* Footer */}
         <div className="spreadsheet-node__type-footer">
           <div className="spreadsheet-node__type-badge">
-            <BsTable size={16} className="spreadsheet-node__type-icon" />
+            <BsFileSpreadsheetFill size={16} className="spreadsheet-node__type-icon" />
           </div>
           <span className="spreadsheet-node__type-label">Spreadsheet</span>
           <button

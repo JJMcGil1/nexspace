@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react'
-import { BsTable } from 'react-icons/bs'
+import { BsFileSpreadsheetFill } from 'react-icons/bs'
 import {
   LuBold,
   LuItalic,
@@ -351,7 +351,7 @@ const SpreadsheetNodeFullscreen: React.FC<SpreadsheetNodeFullscreenProps> = ({
         <div className="spreadsheet-fullscreen__header">
           <div className="spreadsheet-fullscreen__header-left">
             <div className="spreadsheet-fullscreen__icon">
-              <BsTable size={20} />
+              <BsFileSpreadsheetFill size={20} />
             </div>
             {isEditingTitle ? (
               <input

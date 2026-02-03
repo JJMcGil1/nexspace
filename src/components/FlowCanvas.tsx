@@ -26,7 +26,7 @@ import SpreadsheetNodeFullscreen from './nodes/spreadsheet/SpreadsheetNodeFullsc
 import type { SpreadsheetNodeData } from './nodes/spreadsheet/types'
 import { LuLayoutTemplate } from 'react-icons/lu'
 import { IoDocumentText } from 'react-icons/io5'
-import { BsGrid3X3Gap } from 'react-icons/bs'
+import { BsFileSpreadsheetFill } from 'react-icons/bs'
 import Tooltip from './Tooltip'
 import type { CanvasNode, CanvasEdge } from '../types/electron'
 
@@ -126,7 +126,7 @@ const NodeLibraryDropdown: React.FC<NodeLibraryDropdownProps> = ({
           >
             <div className="node-library-dropdown__item-icon">
               {item.icon === 'document' && <IoDocumentText size={18} />}
-              {item.icon === 'spreadsheet' && <BsGrid3X3Gap size={18} />}
+              {item.icon === 'spreadsheet' && <BsFileSpreadsheetFill size={18} />}
             </div>
             <div className="node-library-dropdown__item-content">
               <span className="node-library-dropdown__item-label">{item.label}</span>
