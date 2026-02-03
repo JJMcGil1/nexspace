@@ -38,6 +38,7 @@ import {
   LuMessageSquare,
 } from 'react-icons/lu'
 import { useTheme } from '../../../contexts/ThemeContext'
+import { useCanvas } from '../../../contexts/CanvasContext'
 import { useSpreadsheet } from './useSpreadsheet'
 import {
   SpreadsheetNodeData,
@@ -76,6 +77,7 @@ const SpreadsheetNodeFullscreen: React.FC<SpreadsheetNodeFullscreenProps> = ({
 }) => {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const { updateNode } = useCanvas()
   const [title, setTitle] = useState(initialTitle || 'Untitled Spreadsheet')
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
@@ -166,10 +168,11 @@ const SpreadsheetNodeFullscreen: React.FC<SpreadsheetNodeFullscreenProps> = ({
     ...initialData,
   }), [initialData])
 
-  // Save handler
+  // Save handler - uses CanvasContext updateNode directly for reliable persistence
   const handleChange = useCallback((updates: Partial<SpreadsheetNodeData>) => {
-    onUpdate(nodeId, updates)
-  }, [nodeId, onUpdate])
+    console.log('[SpreadsheetNodeFullscreen] Saving data for node:', nodeId)
+    updateNode(nodeId, updates)
+  }, [nodeId, updateNode])
 
   const spreadsheet = useSpreadsheet({
     initialData: nodeData,
@@ -885,11 +888,12 @@ const SpreadsheetNodeFullscreen: React.FC<SpreadsheetNodeFullscreenProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Title handlers
+  // Title handlers - uses CanvasContext updateNode directly for reliable persistence
   const handleTitleChange = useCallback((newTitle: string) => {
     setTitle(newTitle)
-    onUpdate(nodeId, { title: newTitle })
-  }, [nodeId, onUpdate])
+    console.log('[SpreadsheetNodeFullscreen] Saving title for node:', nodeId, newTitle)
+    updateNode(nodeId, { title: newTitle })
+  }, [nodeId, updateNode])
 
   const handleTitleBlur = useCallback(() => {
     setIsEditingTitle(false)

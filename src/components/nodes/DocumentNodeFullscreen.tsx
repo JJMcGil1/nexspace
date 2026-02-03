@@ -1,10 +1,11 @@
-import React, { useCallback, useState, useEffect } from 'react'
+import React, { useCallback, useState, useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { useTheme } from '../../contexts/ThemeContext'
+import { useCanvas } from '../../contexts/CanvasContext'
 import './DocumentNodeFullscreen.css'
 
 interface DocumentNodeFullscreenProps {
@@ -24,6 +25,7 @@ const DocumentNodeFullscreen: React.FC<DocumentNodeFullscreenProps> = ({
 }) => {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const { updateNode } = useCanvas()
   const [title, setTitle] = useState(initialTitle || 'Untitled')
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
@@ -55,7 +57,9 @@ const DocumentNodeFullscreen: React.FC<DocumentNodeFullscreenProps> = ({
     ],
     content: initialContent || '',
     onUpdate: ({ editor }) => {
-      onUpdate(nodeId, { content: editor.getHTML() })
+      // Use CanvasContext updateNode directly for reliable persistence
+      console.log('[DocumentNodeFullscreen] Saving content for node:', nodeId)
+      updateNode(nodeId, { content: editor.getHTML() })
     },
     editorProps: {
       attributes: {
@@ -66,12 +70,14 @@ const DocumentNodeFullscreen: React.FC<DocumentNodeFullscreenProps> = ({
   })
 
   // Handle title change
+  // Uses useCanvas().updateNode directly for reliable persistence
   const handleTitleChange = useCallback(
     (newTitle: string) => {
       setTitle(newTitle)
-      onUpdate(nodeId, { title: newTitle })
+      console.log('[DocumentNodeFullscreen] Saving title for node:', nodeId, newTitle)
+      updateNode(nodeId, { title: newTitle })
     },
-    [nodeId, onUpdate]
+    [nodeId, updateNode]
   )
 
   const handleTitleBlur = useCallback(() => {
