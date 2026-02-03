@@ -22,8 +22,11 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useCanvas } from '../contexts/CanvasContext'
 import { nodeTypes, NODE_LIBRARY } from './nodes'
 import DocumentNodeFullscreen from './nodes/DocumentNodeFullscreen'
+import SpreadsheetNodeFullscreen from './nodes/spreadsheet/SpreadsheetNodeFullscreen'
+import type { SpreadsheetNodeData } from './nodes/spreadsheet/types'
 import { LuLayoutTemplate } from 'react-icons/lu'
 import { IoDocumentText } from 'react-icons/io5'
+import { BsGrid3X3Gap } from 'react-icons/bs'
 import Tooltip from './Tooltip'
 import type { CanvasNode, CanvasEdge } from '../types/electron'
 
@@ -62,6 +65,8 @@ interface FullscreenNodeState {
   nodeType: string
   title: string
   content: string
+  // Spreadsheet-specific data
+  spreadsheetData?: SpreadsheetNodeData
 }
 
 /** Node library dropdown */
@@ -121,6 +126,7 @@ const NodeLibraryDropdown: React.FC<NodeLibraryDropdownProps> = ({
           >
             <div className="node-library-dropdown__item-icon">
               {item.icon === 'document' && <IoDocumentText size={18} />}
+              {item.icon === 'spreadsheet' && <BsGrid3X3Gap size={18} />}
             </div>
             <div className="node-library-dropdown__item-content">
               <span className="node-library-dropdown__item-label">{item.label}</span>
@@ -392,7 +398,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
   // Handle double-click on nodes to open fullscreen
   const handleNodeDoubleClick: NodeMouseHandler = useCallback(
     (_event, node) => {
-      // Only open fullscreen for document nodes
+      // Open fullscreen for document nodes
       if (node.type === 'document') {
         const nodeData = node.data as { title?: string; content?: string }
         setFullscreenNode({
@@ -400,6 +406,17 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
           nodeType: node.type,
           title: nodeData.title || 'Untitled',
           content: nodeData.content || '',
+        })
+      }
+      // Open fullscreen for spreadsheet nodes
+      else if (node.type === 'spreadsheet') {
+        const nodeData = node.data as unknown as SpreadsheetNodeData
+        setFullscreenNode({
+          nodeId: node.id,
+          nodeType: node.type,
+          title: nodeData.title || 'Untitled Spreadsheet',
+          content: '',
+          spreadsheetData: nodeData,
         })
       }
     },
@@ -426,6 +443,30 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
     [setCanvasNodes]
   )
 
+  // Handle updates from spreadsheet fullscreen editor
+  const handleSpreadsheetFullscreenUpdate = useCallback(
+    (nodeId: string, data: Partial<SpreadsheetNodeData>) => {
+      setCanvasNodes((nds) =>
+        nds.map((node) =>
+          node.id === nodeId
+            ? { ...node, data: { ...node.data, ...data } }
+            : node
+        )
+      )
+      // Also update the fullscreen state to keep it in sync
+      setFullscreenNode((prev) =>
+        prev && prev.nodeId === nodeId
+          ? {
+              ...prev,
+              title: data.title || prev.title,
+              spreadsheetData: { ...prev.spreadsheetData, ...data } as SpreadsheetNodeData
+            }
+          : prev
+      )
+    },
+    [setCanvasNodes]
+  )
+
   // Close fullscreen
   const handleCloseFullscreen = useCallback(() => {
     setFullscreenNode(null)
@@ -442,6 +483,15 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
           nodeType: node.type,
           title: nodeData.title || 'Untitled',
           content: nodeData.content || '',
+        })
+      } else if (node && node.type === 'spreadsheet') {
+        const nodeData = node.data as unknown as SpreadsheetNodeData
+        setFullscreenNode({
+          nodeId: node.id,
+          nodeType: node.type,
+          title: nodeData.title || 'Untitled Spreadsheet',
+          content: '',
+          spreadsheetData: nodeData,
         })
       }
     }
@@ -543,6 +593,17 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ isOpen, isFullWidth }) => 
           content={fullscreenNode.content}
           onClose={handleCloseFullscreen}
           onUpdate={handleFullscreenUpdate}
+        />
+      )}
+
+      {/* Fullscreen Spreadsheet Editor */}
+      {fullscreenNode && fullscreenNode.nodeType === 'spreadsheet' && fullscreenNode.spreadsheetData && (
+        <SpreadsheetNodeFullscreen
+          nodeId={fullscreenNode.nodeId}
+          title={fullscreenNode.title}
+          data={fullscreenNode.spreadsheetData}
+          onClose={handleCloseFullscreen}
+          onUpdate={handleSpreadsheetFullscreenUpdate}
         />
       )}
     </div>

@@ -164,28 +164,61 @@ async function fetchGitHubRelease(): Promise<GitHubRelease> {
 }
 
 /**
- * Get the appropriate asset for the current platform
+ * Get the appropriate asset for the current platform and architecture
  */
 function getPlatformAsset(assets: GitHubAsset[]): GitHubAsset | null {
   const platform = process.platform
   const arch = process.arch
 
+  console.log(`[AutoUpdater] Looking for asset: platform=${platform}, arch=${arch}`)
+
+  // First pass: try to find exact architecture match
   for (const asset of assets) {
     const name = asset.name.toLowerCase()
 
     if (platform === 'darwin') {
-      // macOS: prefer .dmg, then .zip with mac/darwin in name
-      if (name.endsWith('.dmg')) return asset
-      if (name.endsWith('.zip') && (name.includes('mac') || name.includes('darwin'))) return asset
+      // macOS: match architecture (arm64 for Apple Silicon, x64 for Intel)
+      const isArm = name.includes('arm64') || name.includes('aarch64')
+      const isX64 = name.includes('x64') || name.includes('x86_64') || name.includes('intel')
+
+      if (name.endsWith('.dmg')) {
+        if (arch === 'arm64' && isArm) {
+          console.log(`[AutoUpdater] Found arm64 DMG: ${asset.name}`)
+          return asset
+        }
+        if (arch === 'x64' && (isX64 || (!isArm && !isX64))) {
+          // x64 or universal (no arch specified)
+          console.log(`[AutoUpdater] Found x64/universal DMG: ${asset.name}`)
+          return asset
+        }
+      }
     } else if (platform === 'win32') {
       // Windows: prefer Setup.exe or .exe
-      if (name.endsWith('.exe')) return asset
+      if (name.endsWith('.exe')) {
+        console.log(`[AutoUpdater] Found Windows exe: ${asset.name}`)
+        return asset
+      }
     } else if (platform === 'linux') {
       // Linux: prefer .AppImage
-      if (name.endsWith('.appimage')) return asset
+      if (name.endsWith('.appimage')) {
+        console.log(`[AutoUpdater] Found Linux AppImage: ${asset.name}`)
+        return asset
+      }
     }
   }
 
+  // Second pass: fallback to any matching platform asset
+  for (const asset of assets) {
+    const name = asset.name.toLowerCase()
+    if (platform === 'darwin' && name.endsWith('.dmg')) {
+      console.log(`[AutoUpdater] Fallback DMG: ${asset.name}`)
+      return asset
+    }
+    if (platform === 'win32' && name.endsWith('.exe')) return asset
+    if (platform === 'linux' && name.endsWith('.appimage')) return asset
+  }
+
+  console.log('[AutoUpdater] No suitable asset found!')
   return null
 }
 

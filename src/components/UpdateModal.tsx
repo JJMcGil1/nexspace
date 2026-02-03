@@ -59,6 +59,7 @@ const UpdateModal: React.FC = () => {
 
     // Download progress
     const unsubProgress = api.onDownloadProgress((progress: DownloadProgress) => {
+      console.log('[UpdateModal] Download progress:', progress.percent + '%')
       setDownloadProgress(progress)
     })
 
@@ -118,11 +119,18 @@ const UpdateModal: React.FC = () => {
   }
 
   const handleDownload = async () => {
+    console.log('[UpdateModal] Starting download...')
     setStatus('downloading')
     setError(null)
     try {
-      await window.electronAPI?.updater?.downloadUpdate()
+      const result = await window.electronAPI?.updater?.downloadUpdate()
+      console.log('[UpdateModal] Download result:', result)
+      if (result && !result.success) {
+        setStatus('error')
+        setError(result.error || 'Download failed')
+      }
     } catch (err) {
+      console.error('[UpdateModal] Download error:', err)
       setStatus('error')
       setError(err instanceof Error ? err.message : 'Download failed')
     }
@@ -152,6 +160,35 @@ const UpdateModal: React.FC = () => {
     const sizes = ['B', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+  }
+
+  // Convert markdown to clean text for display
+  const formatReleaseNotes = (markdown: string): string => {
+    if (!markdown) return ''
+
+    return markdown
+      // Remove the header section (everything before "### What's Changed" or first meaningful content)
+      .replace(/^##\s*NexSpace.*?(?=###|$)/s, '')
+      // Remove download instructions section
+      .replace(/###\s*Downloads[\s\S]*?(?=###|$)/gi, '')
+      .replace(/###\s*Auto-Update[\s\S]*?(?=###|$)/gi, '')
+      .replace(/###\s*Verification[\s\S]*?(?=###|$)/gi, '')
+      // Convert ### headers to bold text
+      .replace(/###\s*(.+)/g, '$1:')
+      // Convert ## headers
+      .replace(/##\s*(.+)/g, '$1')
+      // Remove ** bold markers
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      // Remove * italic markers
+      .replace(/\*([^*]+)\*/g, '$1')
+      // Remove ` code markers
+      .replace(/`([^`]+)`/g, '$1')
+      // Convert - list items to bullet points
+      .replace(/^-\s+/gm, '• ')
+      // Clean up multiple newlines
+      .replace(/\n{3,}/g, '\n\n')
+      // Trim whitespace
+      .trim()
   }
 
   if (!isOpen) return null
@@ -207,7 +244,9 @@ const UpdateModal: React.FC = () => {
           {info?.releaseNotes && (
             <div className="update-modal__release-notes">
               <h3 className="update-modal__release-notes-title">What's New</h3>
-              <p className="update-modal__release-notes-text">{info.releaseNotes}</p>
+              <p className="update-modal__release-notes-text">
+                {formatReleaseNotes(info.releaseNotes) || 'Bug fixes and improvements.'}
+              </p>
             </div>
           )}
 
@@ -220,17 +259,21 @@ const UpdateModal: React.FC = () => {
           </div>
 
           {/* Download progress */}
-          {status === 'downloading' && downloadProgress && (
+          {status === 'downloading' && (
             <div className="update-modal__progress">
               <div className="update-modal__progress-bar">
                 <div
                   className="update-modal__progress-fill"
-                  style={{ width: `${downloadProgress.percent}%` }}
+                  style={{ width: `${downloadProgress?.percent || 0}%` }}
                 />
               </div>
               <div className="update-modal__progress-text">
-                <span>{downloadProgress.percent}%</span>
-                <span>{formatBytes(downloadProgress.transferred)} / {formatBytes(downloadProgress.total)}</span>
+                <span>{downloadProgress ? `${downloadProgress.percent}%` : 'Starting...'}</span>
+                <span>
+                  {downloadProgress
+                    ? `${formatBytes(downloadProgress.transferred)} / ${formatBytes(downloadProgress.total)}`
+                    : 'Connecting...'}
+                </span>
               </div>
             </div>
           )}

@@ -1,0 +1,574 @@
+/* ═══════════════════════════════════════════════════════════
+   SpreadsheetNode — Grid-based spreadsheet node for React Flow
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Wrapper for positioning title outside ─────────────── */
+.spreadsheet-node-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 18px;
+  transition: background-color 0.15s ease;
+  min-width: 400px;
+  max-width: 1200px;
+}
+
+.spreadsheet-node-wrapper--resizing {
+  user-select: none;
+}
+
+/* ── Resize Handles (invisible, cursor only) ────────────── */
+.spreadsheet-node__resize-handle {
+  position: absolute;
+  z-index: 10;
+}
+
+.spreadsheet-node__resize-handle--left {
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.spreadsheet-node__resize-handle--right {
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.spreadsheet-node__resize-handle--bottom {
+  bottom: -4px;
+  left: 16px;
+  right: 16px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.spreadsheet-node__resize-handle--bottom-left {
+  bottom: -4px;
+  left: -4px;
+  width: 20px;
+  height: 20px;
+  cursor: nesw-resize;
+}
+
+.spreadsheet-node__resize-handle--bottom-right {
+  bottom: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+}
+
+/* ── Header Row (title + hover nav) ───────────────────── */
+.spreadsheet-node__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* ── External Title ───────────────────────────────────── */
+.spreadsheet-node__external-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.spreadsheet-node-wrapper--dark .spreadsheet-node__external-title {
+  color: var(--color-text-secondary);
+}
+
+.spreadsheet-node-wrapper--light .spreadsheet-node__external-title {
+  color: var(--color-text-secondary);
+}
+
+/* ── Hover Navigation ─────────────────────────────────── */
+.spreadsheet-node__hover-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.spreadsheet-node-wrapper:hover .spreadsheet-node__hover-nav,
+.react-flow__node:hover .spreadsheet-node__hover-nav,
+.react-flow__node.selected .spreadsheet-node__hover-nav,
+.rf-node-hovered .spreadsheet-node__hover-nav {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.spreadsheet-node__hover-nav-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 2px;
+}
+
+.spreadsheet-node-wrapper--light .spreadsheet-node__hover-nav-divider {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.spreadsheet-node__hover-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: rgba(28, 28, 32, 0.94);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+  transition: all 0.15s ease;
+}
+
+.spreadsheet-node__hover-btn:hover {
+  background: rgba(45, 45, 52, 0.98);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.spreadsheet-node-wrapper--light .spreadsheet-node__hover-btn {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.spreadsheet-node-wrapper--light .spreadsheet-node__hover-btn:hover {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.15);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.spreadsheet-node__drag-handle {
+  cursor: grab;
+}
+
+.spreadsheet-node__drag-handle:active {
+  cursor: grabbing;
+}
+
+/* ── Title ───────────────────────────────────────────── */
+.spreadsheet-node__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spreadsheet-node__title-input {
+  padding: 2px 6px;
+  margin: -2px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  outline: none;
+}
+
+.spreadsheet-node-wrapper--light .spreadsheet-node__title-input {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* ── Node Base ───────────────────────────────────────── */
+.spreadsheet-node__base {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.spreadsheet-node__base--dark {
+  background: #131316;
+  border: 1px solid #1e1e22;
+}
+
+.spreadsheet-node__base--light {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+}
+
+/* Hover effects on base */
+.spreadsheet-node-wrapper:hover .spreadsheet-node__base--dark,
+.react-flow__node:hover .spreadsheet-node__base--dark,
+.react-flow__node.selected .spreadsheet-node__base--dark,
+.rf-node-hovered .spreadsheet-node__base--dark {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3);
+}
+
+.spreadsheet-node-wrapper:hover .spreadsheet-node__base--light,
+.react-flow__node:hover .spreadsheet-node__base--light,
+.react-flow__node.selected .spreadsheet-node__base--light,
+.rf-node-hovered .spreadsheet-node__base--light {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.06);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+/* ── Main Spreadsheet ───────────────────────────────── */
+.spreadsheet-node {
+  min-height: 250px;
+  max-height: 800px;
+  border-radius: 12px;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  margin: 10px;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+
+.spreadsheet-node--dark {
+  background: #1a1a1e;
+  border: 1px solid #2a2a2f;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.spreadsheet-node--light {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Formula Bar ───────────────────────────────────── */
+.spreadsheet-node__formula-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.spreadsheet-node--light .spreadsheet-node__formula-bar {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.spreadsheet-node__cell-address {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: #10b981;
+  min-width: 40px;
+  padding: 4px 8px;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: 4px;
+}
+
+.spreadsheet-node__formula-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Grid Container ───────────────────────────────── */
+.spreadsheet-node__grid-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a3f transparent;
+}
+
+.spreadsheet-node__grid-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.spreadsheet-node__grid-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.spreadsheet-node__grid-container::-webkit-scrollbar-thumb {
+  background: #3a3a3f;
+  border-radius: 4px;
+}
+
+.spreadsheet-node--light .spreadsheet-node__grid-container {
+  scrollbar-color: #d1d5db transparent;
+}
+
+.spreadsheet-node--light .spreadsheet-node__grid-container::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+}
+
+/* ── Grid Content ───────────────────────────────── */
+.spreadsheet-node__grid-content {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+/* ── Column Headers ───────────────────────────────── */
+.spreadsheet-node__column-headers {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  background: #1e1e22;
+}
+
+.spreadsheet-node--light .spreadsheet-node__column-headers {
+  background: #f3f4f6;
+}
+
+.spreadsheet-node__col-header {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: #1e1e22;
+  border-right: 1px solid #2a2a2f;
+  border-bottom: 1px solid #2a2a2f;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.1s;
+}
+
+.spreadsheet-node__col-header:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.spreadsheet-node--light .spreadsheet-node__col-header {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.spreadsheet-node--light .spreadsheet-node__col-header:hover {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+/* ── Row Headers ───────────────────────────────── */
+.spreadsheet-node__row-headers {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+.spreadsheet-node__row-header {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: #1e1e22;
+  border-right: 1px solid #2a2a2f;
+  border-bottom: 1px solid #2a2a2f;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.1s;
+}
+
+.spreadsheet-node__row-header:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.spreadsheet-node--light .spreadsheet-node__row-header {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.spreadsheet-node--light .spreadsheet-node__row-header:hover {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+/* ── Corner Cell ───────────────────────────────── */
+.spreadsheet-node__corner-cell {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  background: #1e1e22;
+  border-right: 1px solid #2a2a2f;
+  border-bottom: 1px solid #2a2a2f;
+  cursor: pointer;
+}
+
+.spreadsheet-node__corner-cell:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.spreadsheet-node--light .spreadsheet-node__corner-cell {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+/* ── Cells ───────────────────────────────────────── */
+.spreadsheet-node__cells {
+  position: absolute;
+}
+
+.spreadsheet-node__cell {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 12px;
+  border-right: 1px solid #2a2a2f;
+  border-bottom: 1px solid #2a2a2f;
+  background: transparent;
+  cursor: cell;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.spreadsheet-node--light .spreadsheet-node__cell {
+  border-color: #e5e7eb;
+}
+
+.spreadsheet-node__cell--selected {
+  background: rgba(16, 185, 129, 0.08) !important;
+}
+
+.spreadsheet-node__cell--active {
+  background: rgba(16, 185, 129, 0.12) !important;
+  outline: 2px solid #10b981;
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.spreadsheet-node__cell-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.spreadsheet-node__cell-value--error {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.spreadsheet-node__cell-input {
+  width: 100%;
+  height: 100%;
+  padding: 0 8px;
+  margin: -1px;
+  border: 2px solid #10b981;
+  border-radius: 0;
+  background: #1a1a1e;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.spreadsheet-node--light .spreadsheet-node__cell-input {
+  background: #ffffff;
+}
+
+/* ── Type Footer ───────────────────────────────── */
+.spreadsheet-node__type-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+}
+
+.spreadsheet-node__type-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  flex-shrink: 0;
+}
+
+.spreadsheet-node__type-icon {
+  color: #34d399;
+  flex-shrink: 0;
+}
+
+.spreadsheet-node-wrapper--light .spreadsheet-node__type-badge {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.15);
+}
+
+.spreadsheet-node-wrapper--light .spreadsheet-node__type-icon {
+  color: #10b981;
+}
+
+.spreadsheet-node__type-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  letter-spacing: 0.01em;
+  flex: 1;
+}
+
+.spreadsheet-node__footer-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spreadsheet-node__footer-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.spreadsheet-node-wrapper--light .spreadsheet-node__footer-delete {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.spreadsheet-node-wrapper--light .spreadsheet-node__footer-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
