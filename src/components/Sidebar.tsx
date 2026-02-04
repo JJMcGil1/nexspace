@@ -70,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onOpenSettings }) => {
     try {
       // Pick a random color for the new nexspace
       const randomColor = NEXSPACE_COLORS[Math.floor(Math.random() * NEXSPACE_COLORS.length)]
-      const newNexSpace = await addNexSpace('Untitled Space', undefined, randomColor)
+      const newNexSpace = await addNexSpace('Untitled NexSpace', undefined, randomColor)
       // Load the new nexspace into canvas context
       await loadNexSpace(newNexSpace.id)
     } catch (error) {

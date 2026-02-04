@@ -84,6 +84,19 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loadData()
   }, [])
 
+  // Listen for canvas refresh events and sync nexspaces state
+  useEffect(() => {
+    const unsubRefresh = window.electronAPI.canvas.onRefresh(async (freshNexSpaces) => {
+      console.log('[UserContext] Canvas refresh event - syncing nexspaces')
+      // Update our local state with the fresh data from store
+      setNexSpaces(freshNexSpaces as NexSpace[])
+    })
+
+    return () => {
+      unsubRefresh()
+    }
+  }, [])
+
   // Set user profile
   const setUser = useCallback(async (newUser: UserProfile) => {
     const userWithDefaults: UserProfile = {
@@ -111,7 +124,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   ): Promise<NexSpace> => {
     const newNexSpace: NexSpace = {
       id: generateId(),
-      title,
+      title: title || 'Untitled NexSpace',
       coverImage,
       coverColor: coverColor || getRandomColor(),
       lastEdited: new Date().toISOString(),
@@ -121,29 +134,35 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       chatMessages: [],
     }
 
-    const updatedNexSpaces = [newNexSpace, ...nexspaces]
+    // IMPORTANT: Always read fresh from store to avoid race conditions with CanvasContext
+    const freshNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
+    const updatedNexSpaces = [newNexSpace, ...freshNexSpaces]
     await window.electronAPI.store.set('nexspaces', updatedNexSpaces)
     setNexSpaces(updatedNexSpaces)
 
     return newNexSpace
-  }, [nexspaces])
+  }, [])
 
   // Update a NexSpace
   const updateNexSpace = useCallback(async (id: string, updates: Partial<NexSpace>) => {
-    const updatedNexSpaces = nexspaces.map(ns =>
+    // IMPORTANT: Always read fresh from store to avoid race conditions with CanvasContext
+    const freshNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
+    const updatedNexSpaces = freshNexSpaces.map(ns =>
       ns.id === id ? { ...ns, ...updates, lastEdited: new Date().toISOString() } : ns
     )
 
     await window.electronAPI.store.set('nexspaces', updatedNexSpaces)
     setNexSpaces(updatedNexSpaces)
-  }, [nexspaces])
+  }, [])
 
   // Delete a NexSpace
   const deleteNexSpace = useCallback(async (id: string) => {
-    const updatedNexSpaces = nexspaces.filter(ns => ns.id !== id)
+    // IMPORTANT: Always read fresh from store to avoid race conditions with CanvasContext
+    const freshNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
+    const updatedNexSpaces = freshNexSpaces.filter(ns => ns.id !== id)
     await window.electronAPI.store.set('nexspaces', updatedNexSpaces)
     setNexSpaces(updatedNexSpaces)
-  }, [nexspaces])
+  }, [])
 
   const value: UserContextType = {
     user,

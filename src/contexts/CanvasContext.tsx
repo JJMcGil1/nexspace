@@ -142,8 +142,18 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const messagesWithTools = allMessages.filter(m => m.toolCalls && m.toolCalls.length > 0)
     console.log('[CanvasContext] Saving - messages with toolCalls:', messagesWithTools.length)
 
+    // Get all nexspaces from store to preserve any external updates (like title renames)
+    const allNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
+    const storeNexSpace = allNexSpaces.find(ns => ns.id === currentNexSpaceId)
+
+    // Merge: preserve title/coverImage/coverColor from store, update canvas data from state
     const updatedNexSpace: NexSpace = {
       ...currentNexSpace,
+      // Preserve externally-updated fields (title, cover) from store, with fallback
+      title: storeNexSpace?.title || currentNexSpace.title || 'Untitled NexSpace',
+      coverImage: storeNexSpace?.coverImage ?? currentNexSpace.coverImage,
+      coverColor: storeNexSpace?.coverColor || currentNexSpace.coverColor,
+      // Update canvas-managed fields from state
       nodes,
       edges,
       chatSessions,
@@ -154,8 +164,6 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       lastEdited: new Date().toISOString(),
     }
 
-    // Get all nexspaces and update the current one
-    const allNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
     const updatedNexSpaces = allNexSpaces.map(ns =>
       ns.id === currentNexSpaceId ? updatedNexSpace : ns
     )
@@ -422,8 +430,18 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!currentNexSpaceId || !currentNexSpace) return
 
     console.log('[CanvasContext] Sync saving NexSpace:', currentNexSpaceId, 'sessions:', chatSessions.length)
+
+    // Get latest from store to preserve externally-updated fields (title, cover)
+    const allNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
+    const storeNexSpace = allNexSpaces.find(ns => ns.id === currentNexSpaceId)
+
     const updatedNexSpace: NexSpace = {
       ...currentNexSpace,
+      // Preserve externally-updated fields from store, with fallback
+      title: storeNexSpace?.title || currentNexSpace.title || 'Untitled NexSpace',
+      coverImage: storeNexSpace?.coverImage ?? currentNexSpace.coverImage,
+      coverColor: storeNexSpace?.coverColor || currentNexSpace.coverColor,
+      // Update canvas-managed fields
       nodes,
       edges,
       chatSessions,
@@ -433,7 +451,6 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       lastEdited: new Date().toISOString(),
     }
 
-    const allNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
     const updatedNexSpaces = allNexSpaces.map(ns =>
       ns.id === currentNexSpaceId ? updatedNexSpace : ns
     )
@@ -460,8 +477,17 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // STEP 2: Save current nexspace state before switching
     if (currentNexSpaceId && currentNexSpace) {
       console.log('[CanvasContext] Saving current NexSpace:', currentNexSpaceId, 'sessions:', chatSessions.length)
+      // Get latest from store to preserve externally-updated fields (title, cover)
+      const allNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
+      const storeNexSpace = allNexSpaces.find(ns => ns.id === currentNexSpaceId)
+
       const updatedNexSpace: NexSpace = {
         ...currentNexSpace,
+        // Preserve externally-updated fields from store, with fallback
+        title: storeNexSpace?.title || currentNexSpace.title || 'Untitled NexSpace',
+        coverImage: storeNexSpace?.coverImage ?? currentNexSpace.coverImage,
+        coverColor: storeNexSpace?.coverColor || currentNexSpace.coverColor,
+        // Update canvas-managed fields
         nodes,
         edges,
         chatSessions,
@@ -470,7 +496,6 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         chatMessages: undefined, // Clear legacy field
         lastEdited: new Date().toISOString(),
       }
-      const allNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
       const updatedNexSpaces = allNexSpaces.map(ns =>
         ns.id === currentNexSpaceId ? updatedNexSpace : ns
       )
@@ -512,7 +537,7 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const defaultSession = createDefaultSession()
     const newNexSpace: NexSpace = {
       id: `nexspace-${Date.now()}`,
-      title,
+      title: title || 'Untitled NexSpace',
       createdAt: new Date().toISOString(),
       lastEdited: new Date().toISOString(),
       nodes: [],
@@ -557,8 +582,18 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!currentNexSpaceId || !currentNexSpace) return
 
       console.log('[CanvasContext] beforeunload - force saving nodes:', nodes.length)
+      // Get latest from store to preserve externally-updated fields (title, cover)
+      const storedNexSpaces = await window.electronAPI.store.get('nexspaces')
+      const allNexSpaces = Array.isArray(storedNexSpaces) ? storedNexSpaces : []
+      const storeNexSpace = allNexSpaces.find((ns: { id: string }) => ns.id === currentNexSpaceId)
+
       const updatedNexSpace = {
         ...currentNexSpace,
+        // Preserve externally-updated fields from store, with fallback
+        title: storeNexSpace?.title || currentNexSpace.title || 'Untitled NexSpace',
+        coverImage: storeNexSpace?.coverImage ?? currentNexSpace.coverImage,
+        coverColor: storeNexSpace?.coverColor || currentNexSpace.coverColor,
+        // Update canvas-managed fields
         nodes,
         edges,
         chatSessions,
@@ -566,8 +601,6 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         chatMessages: undefined,
         lastEdited: new Date().toISOString(),
       }
-      const storedNexSpaces = await window.electronAPI.store.get('nexspaces')
-      const allNexSpaces = Array.isArray(storedNexSpaces) ? storedNexSpaces : []
       const updatedNexSpaces = allNexSpaces.map((ns: { id: string }) =>
         ns.id === currentNexSpaceId ? updatedNexSpace : ns
       )
@@ -625,7 +658,7 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const defaultSession = createDefaultSession()
         const newNexSpace: NexSpace = {
           id: `nexspace-${Date.now()}`,
-          title: 'My First Space',
+          title: 'Untitled NexSpace',
           createdAt: new Date().toISOString(),
           lastEdited: new Date().toISOString(),
           nodes: [],
