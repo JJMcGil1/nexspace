@@ -126,6 +126,7 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [activeChatSessionId, setActiveChatSessionId] = useState<string | null>(null)
   const [openSessionIds, setOpenSessionIds] = useState<string[]>([])
   const [isDirty, setIsDirty] = useState(false)
+  const [isSwitchingNexSpace, setIsSwitchingNexSpace] = useState(false)
 
   // Derive current chat messages from active session
   const chatMessages = chatSessions.find(s => s.id === activeChatSessionId)?.messages || []
@@ -177,49 +178,62 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Debounced auto-save (reduced to 300ms for responsiveness)
   const debouncedSave = useDebouncedCallback(saveCanvas, 300)
 
-  // Auto-save when dirty
+  // Auto-save when dirty (but not during nexspace switching)
   useEffect(() => {
-    if (isDirty && currentNexSpaceId) {
+    if (isDirty && currentNexSpaceId && !isSwitchingNexSpace) {
       debouncedSave()
     }
-  }, [isDirty, currentNexSpaceId, debouncedSave])
+  }, [isDirty, currentNexSpaceId, debouncedSave, isSwitchingNexSpace])
 
-  // Track previous node count to detect structural changes
+  // Track previous counts to detect structural changes
   const prevNodeCountRef = useRef(nodes.length)
+  const prevChatCountRef = useRef(chatMessages.length)
+  const prevSessionCountRef = useRef(chatSessions.length)
+  const prevNexSpaceIdRef = useRef(currentNexSpaceId)
+
+  // Reset ALL tracking refs when nexspace changes to avoid false "change" detection
+  // This prevents the auto-save from triggering when loading a new nexspace
+  useEffect(() => {
+    if (prevNexSpaceIdRef.current !== currentNexSpaceId) {
+      console.log('[CanvasContext] NexSpace changed, resetting tracking refs')
+      prevNodeCountRef.current = nodes.length
+      prevChatCountRef.current = chatMessages.length
+      prevSessionCountRef.current = chatSessions.length
+      prevNexSpaceIdRef.current = currentNexSpaceId
+    }
+  }, [currentNexSpaceId, nodes.length, chatMessages.length, chatSessions.length])
 
   // Immediate save when nodes are added/removed (structural changes)
+  // IMPORTANT: Skip during nexspace switching to prevent saving cleared state to old nexspace
   useEffect(() => {
-    if (prevNodeCountRef.current !== nodes.length && currentNexSpaceId && currentNexSpace) {
+    if (prevNodeCountRef.current !== nodes.length && currentNexSpaceId && currentNexSpace && !isSwitchingNexSpace) {
       console.log('[CanvasContext] Node count changed:', prevNodeCountRef.current, '->', nodes.length, '- saving immediately')
       prevNodeCountRef.current = nodes.length
       // Call saveCanvas directly (not debounced) for structural changes
       saveCanvas()
     }
-  }, [nodes.length, currentNexSpaceId, currentNexSpace, saveCanvas])
-
-  // Track previous chat message count for immediate save on new messages
-  const prevChatCountRef = useRef(chatMessages.length)
+  }, [nodes.length, currentNexSpaceId, currentNexSpace, saveCanvas, isSwitchingNexSpace])
 
   // Immediate save when chat messages are added (ensures tool calls are persisted)
+  // IMPORTANT: Skip during nexspace switching to prevent saving cleared state to old nexspace
   useEffect(() => {
-    if (prevChatCountRef.current !== chatMessages.length && currentNexSpaceId && currentNexSpace) {
+    if (prevChatCountRef.current !== chatMessages.length && currentNexSpaceId && currentNexSpace && !isSwitchingNexSpace) {
       console.log('[CanvasContext] Chat message count changed:', prevChatCountRef.current, '->', chatMessages.length, '- saving immediately')
       prevChatCountRef.current = chatMessages.length
       // Call saveCanvas directly (not debounced) for new messages
       saveCanvas()
     }
-  }, [chatMessages.length, currentNexSpaceId, currentNexSpace, saveCanvas])
+  }, [chatMessages.length, currentNexSpaceId, currentNexSpace, saveCanvas, isSwitchingNexSpace])
 
-  // Track session count for immediate save
-  const prevSessionCountRef = useRef(chatSessions.length)
-
+  // Immediate save when chat sessions count changes
+  // IMPORTANT: Skip during nexspace switching to prevent saving cleared state to old nexspace
   useEffect(() => {
-    if (prevSessionCountRef.current !== chatSessions.length && currentNexSpaceId && currentNexSpace) {
+    if (prevSessionCountRef.current !== chatSessions.length && currentNexSpaceId && currentNexSpace && !isSwitchingNexSpace) {
       console.log('[CanvasContext] Chat session count changed:', prevSessionCountRef.current, '->', chatSessions.length, '- saving immediately')
       prevSessionCountRef.current = chatSessions.length
       saveCanvas()
     }
-  }, [chatSessions.length, currentNexSpaceId, currentNexSpace, saveCanvas])
+  }, [chatSessions.length, currentNexSpaceId, currentNexSpace, saveCanvas, isSwitchingNexSpace])
 
   // ─────────────────────────────────────────────────────────
   // Node/Edge setters that mark dirty
@@ -466,17 +480,13 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log('[CanvasContext] === SWITCHING NEXSPACE ===')
     console.log('[CanvasContext] From:', currentNexSpaceId, 'To:', id)
 
-    // STEP 1: IMMEDIATELY clear state to prevent stale data from showing
-    // This ensures no "bleeding" of messages between nexspaces
-    setChatSessionsState([])
-    setActiveChatSessionId(null)
-    setOpenSessionIds([])
-    setNodesState([])
-    setEdgesState([])
+    // STEP 1: Set switching flag to PREVENT auto-save from saving cleared state to old nexspace
+    // This is CRITICAL - without this, the auto-save effects would save empty nodes to the old nexspace
+    setIsSwitchingNexSpace(true)
 
-    // STEP 2: Save current nexspace state before switching
+    // STEP 2: Save current nexspace state BEFORE clearing (using closure values)
     if (currentNexSpaceId && currentNexSpace) {
-      console.log('[CanvasContext] Saving current NexSpace:', currentNexSpaceId, 'sessions:', chatSessions.length)
+      console.log('[CanvasContext] Saving current NexSpace:', currentNexSpaceId, 'nodes:', nodes.length, 'sessions:', chatSessions.length)
       // Get latest from store to preserve externally-updated fields (title, cover)
       const allNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
       const storeNexSpace = allNexSpaces.find(ns => ns.id === currentNexSpaceId)
@@ -487,7 +497,7 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         title: storeNexSpace?.title || currentNexSpace.title || 'Untitled NexSpace',
         coverImage: storeNexSpace?.coverImage ?? currentNexSpace.coverImage,
         coverColor: storeNexSpace?.coverColor || currentNexSpace.coverColor,
-        // Update canvas-managed fields
+        // Update canvas-managed fields with current values (from closure)
         nodes,
         edges,
         chatSessions,
@@ -502,18 +512,25 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await window.electronAPI.store.set('nexspaces', updatedNexSpaces)
     }
 
-    // STEP 3: Load the new NexSpace from store
+    // STEP 3: Clear state AFTER saving (to show clean canvas during load)
+    setChatSessionsState([])
+    setActiveChatSessionId(null)
+    setOpenSessionIds([])
+    setNodesState([])
+    setEdgesState([])
+
+    // STEP 4: Load the new NexSpace from store
     const allNexSpaces: NexSpace[] = await window.electronAPI.store.get('nexspaces') || []
     const nexspace = allNexSpaces.find(ns => ns.id === id)
 
     if (nexspace) {
-      console.log('[CanvasContext] LOADING nexspace:', id)
+      console.log('[CanvasContext] LOADING nexspace:', id, 'nodes:', nexspace.nodes?.length || 0)
 
       // Migrate legacy messages to sessions if needed
       const { sessions, activeId } = migrateLegacyMessages(nexspace)
       console.log('[CanvasContext] Sessions:', sessions.length, 'Active:', activeId)
 
-      // STEP 4: Set all state with fresh data from store
+      // STEP 5: Set all state with fresh data from store
       setCurrentNexSpaceId(id)
       setCurrentNexSpace(nexspace)
       setNodesState(nexspace.nodes || [])
@@ -531,6 +548,9 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } else {
       console.warn('[CanvasContext] NexSpace not found:', id)
     }
+
+    // STEP 6: Clear switching flag - auto-save can resume
+    setIsSwitchingNexSpace(false)
   }, [currentNexSpaceId, currentNexSpace, nodes, edges, chatSessions, activeChatSessionId, openSessionIds])
 
   const createNexSpace = useCallback(async (title: string): Promise<NexSpace> => {
